@@ -1,28 +1,77 @@
 body {
-    font-family: monospace;
-    margin: 20px;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f4f4f4;
 }
+
+header {
+    background: #24292f;
+    color: #fff;
+    padding: 1rem;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+}
+
+header p {
+    margin: 0.3rem 0 0;
+    font-size: 0.9rem;
+}
+
+main {
+    padding: 1rem;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.input-container {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+input[type="text"] {
+    flex: 1;
+    padding: 0.5rem;
+    font-size: 1rem;
+}
+
+button {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
 #fileTree {
-    margin-top: 10px;
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background: #fff;
+    border: 1px solid #ccc;
 }
-.folder {
-    font-weight: bold;
+
+#fileTree ul {
+    list-style: none;
+    padding-left: 1rem;
+}
+
+#fileTree li {
     cursor: pointer;
+    padding: 0.2rem 0;
 }
-.file {
-    cursor: pointer;
-    color: darkblue;
-    margin-left: 20px;
+
+#fileTree li:hover {
+    background: #eef;
 }
-textarea {
-    width: 100%;
-    height: 400px;
-    margin-top: 10px;
-    white-space: pre;
-}
-#controls input {
-    margin-right: 10px;
-}
-#controls label {
-    margin-right: 10px;
+
+#fileContent {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #222;
+    color: #fff;
+    overflow-x: auto;
+    white-space: pre-wrap;
 }
