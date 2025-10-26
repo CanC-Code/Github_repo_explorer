@@ -46,27 +46,6 @@ button {
     cursor: pointer;
 }
 
-#fileTree {
-    margin-top: 1rem;
-    padding: 0.5rem;
-    background: #fff;
-    border: 1px solid #ccc;
-}
-
-#fileTree ul {
-    list-style: none;
-    padding-left: 1rem;
-}
-
-#fileTree li {
-    cursor: pointer;
-    padding: 0.2rem 0;
-}
-
-#fileTree li:hover {
-    background: #eef;
-}
-
 #fileContent {
     margin-top: 1rem;
     padding: 1rem;

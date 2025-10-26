@@ -3,60 +3,57 @@ const loadBtn = document.getElementById("loadBtn");
 const fileContentContainer = document.getElementById("fileContent");
 const repoInfo = document.getElementById("repoInfo");
 
-// Load repository and all files
+// Fetch all files and display
 async function loadRepository(ownerRepo, branch = "main") {
     repoInfo.textContent = `Loading ${ownerRepo}...`;
     fileContentContainer.textContent = "";
 
-    const apiUrl = `https://api.github.com/repos/${ownerRepo}/git/trees/${branch}?recursive=1`;
+    const treeApi = `https://api.github.com/repos/${ownerRepo}/git/trees/${branch}?recursive=1`;
 
     try {
-        const res = await fetch(apiUrl);
-        if (!res.ok) throw new Error("Failed to load repository. Check owner/repo and branch.");
+        const res = await fetch(treeApi);
+        if (!res.ok) throw new Error("Failed to load repository tree.");
         const data = await res.json();
 
-        repoInfo.textContent = `Repository: ${ownerRepo} (branch: ${branch})`;
-
         const files = data.tree.filter(item => item.type === "blob");
+        repoInfo.textContent = `Repository: ${ownerRepo} (branch: ${branch}) - ${files.length} files`;
 
-        fileContentContainer.textContent = `Fetching ${files.length} files...\n`;
-
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            await loadFile(ownerRepo, branch, file.path);
+        for (const file of files) {
+            await fetchAndAppendFile(ownerRepo, branch, file.path);
         }
 
-        fileContentContainer.textContent += `\nAll files loaded.`;
+        repoInfo.textContent += " | All files loaded successfully.";
     } catch (err) {
         repoInfo.textContent = `Error: ${err.message}`;
     }
 }
 
-// Load a single file and append it
-async function loadFile(ownerRepo, branch, path) {
+// Fetch a single file and append
+async function fetchAndAppendFile(ownerRepo, branch, path) {
     const rawUrl = `https://raw.githubusercontent.com/${ownerRepo}/${branch}/${path}`;
     try {
         const res = await fetch(rawUrl);
-        if (!res.ok) throw new Error(`Failed to load ${path}`);
-        const text = await res.text();
-
-        fileContentContainer.textContent += `\n\n===== ${path} =====\n`;
-        fileContentContainer.textContent += text;
+        let content = "";
+        if (!res.ok) {
+            content = `Error loading file: ${res.statusText}`;
+        } else {
+            content = await res.text();
+        }
+        fileContentContainer.textContent += `\n\n===== ${path} =====\n${content}`;
     } catch (err) {
-        fileContentContainer.textContent += `\n\n===== ${path} =====\nError loading file: ${err.message}\n`;
+        fileContentContainer.textContent += `\n\n===== ${path} =====\nError: ${err.message}`;
     }
 }
 
-// Button click event
+// Button click
 loadBtn.onclick = () => {
     const repo = repoInput.value.trim();
     if (repo) loadRepository(repo);
 };
 
-// Check URL path for appended GitHub repo
+// Detect appended GitHub URL
 function checkURL() {
-    let path = window.location.pathname.replace(/^\/+/, "");
-    path = decodeURIComponent(path);
+    let path = decodeURIComponent(window.location.pathname.replace(/^\/+/, ""));
     if (path.startsWith("https://github.com/")) {
         const match = path.match(/github\.com\/([^\/]+\/[^\/]+)/);
         if (match) {
@@ -67,5 +64,5 @@ function checkURL() {
     }
 }
 
-// Run on page load
+// Run on load
 checkURL();
