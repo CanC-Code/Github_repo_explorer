@@ -79,16 +79,20 @@ loadBtn.onclick = () => {
     if (repo) loadRepository(repo);
 };
 
-// Detect appended URL and auto-load
+// Detect appended GitHub URL using semicolon separator
 function checkURL() {
     const url = decodeURIComponent(window.location.href);
 
-    // Match any github.com/owner/repo pattern in the URL
-    const match = url.match(/github\.com\/([^\/]+\/[^\/]+)/);
-    if (match) {
-        const ownerRepo = match[1];
-        repoInput.value = ownerRepo;
-        loadRepository(ownerRepo);
+    // Split on semicolon to separate base URL from GitHub repo
+    const parts = url.split(";");
+    if (parts.length > 1) {
+        const githubUrl = parts[1].trim();
+        const match = githubUrl.match(/github\.com\/([^\/]+\/[^\/]+)/);
+        if (match) {
+            const ownerRepo = match[1];
+            repoInput.value = ownerRepo;
+            loadRepository(ownerRepo);
+        }
     }
 }
 
