@@ -24,7 +24,7 @@ header p {
 
 main {
     padding: 1rem;
-    max-width: 900px;
+    max-width: 1000px;
     margin: 0 auto;
 }
 
@@ -46,11 +46,47 @@ button {
     cursor: pointer;
 }
 
-#fileContent {
-    margin-top: 1rem;
-    padding: 1rem;
-    background: #222;
-    color: #fff;
+#repoInfo {
+    margin-bottom: 1rem;
+    font-weight: bold;
+}
+
+#fileTree {
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 0.5rem;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+ul {
+    list-style: none;
+    padding-left: 1rem;
+}
+
+li {
+    cursor: pointer;
+    padding: 0.2rem 0;
+}
+
+li:hover {
+    background: #eef;
+}
+
+li.folder::before {
+    content: "? ";
+}
+
+li.file::before {
+    content: "? ";
+}
+
+pre {
+    background: #2d2d2d;
+    color: #f8f8f2;
+    padding: 0.5rem;
     overflow-x: auto;
     white-space: pre-wrap;
+    margin-top: 0.5rem;
+    border-radius: 4px;
 }

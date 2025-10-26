@@ -5,11 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GitHub Repo Explorer</title>
 <link rel="stylesheet" href="style.css">
+<!-- Prism.js for syntax highlighting -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet"/>
 </head>
 <body>
 <header>
     <h1>GitHub Repo Explorer</h1>
-    <p>View all files of any public GitHub repository at once</p>
+    <p>Browse any public GitHub repository files at once</p>
 </header>
 
 <main>
@@ -18,9 +20,16 @@
         <button id="loadBtn">Load Repository</button>
     </div>
     <div id="repoInfo"></div>
-    <pre id="fileContent"></pre>
+    <div id="fileTree"></div>
 </main>
 
+<!-- Prism.js for syntax highlighting -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
 <script src="script.js"></script>
+</main>
 </body>
 </html>

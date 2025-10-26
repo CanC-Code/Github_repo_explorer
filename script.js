@@ -1,65 +1,85 @@
 const repoInput = document.getElementById("repoInput");
 const loadBtn = document.getElementById("loadBtn");
-const fileContentContainer = document.getElementById("fileContent");
+const fileTreeContainer = document.getElementById("fileTree");
 const repoInfo = document.getElementById("repoInfo");
 
-// Load repository and all readable files
+// Load repository and display all files
 async function loadRepository(ownerRepo) {
     repoInfo.textContent = `Fetching repository info for ${ownerRepo}...`;
-    fileContentContainer.textContent = "";
+    fileTreeContainer.innerHTML = "";
+
 
     try {
-        // Get default branch dynamically
+        // Detect default branch dynamically
         const repoRes = await fetch(`https://api.github.com/repos/${ownerRepo}`);
-        if (!repoRes.ok) throw new Error("Failed to fetch repository info.");
+        if (!repoRes.ok) throw new Error("Failed to fetch repo info.");
         const repoData = await repoRes.json();
         const branch = repoData.default_branch || "main";
 
-        // Fetch all files
+        // Fetch tree recursively
         const treeRes = await fetch(`https://api.github.com/repos/${ownerRepo}/git/trees/${branch}?recursive=1`);
-        if (!treeRes.ok) throw new Error("Failed to fetch repository tree.");
+        if (!treeRes.ok) throw new Error("Failed to fetch repo tree.");
         const treeData = await treeRes.json();
 
-        const files = treeData.tree.filter(item => item.type === "blob");
+        repoInfo.textContent = `Repository: ${ownerRepo} (branch: ${branch}) | ${treeData.tree.length} items`;
 
-        repoInfo.textContent = `Repository: ${ownerRepo} (branch: ${branch}) | ${files.length} files`;
+        // Build file tree structure
+        const root = {};
+        treeData.tree.forEach(item => {
+            const parts = item.path.split("/");
+            let cur = root;
+            parts.forEach((part, i) => {
+                if (!cur[part]) cur[part] = { _type: i === parts.length - 1 ? item.type : "tree", _path: item.path };
+                cur = cur[part];
+            });
+        });
 
-        // Fetch all files in parallel, but limit concurrency to avoid browser/network issues
-        const maxParallel = 10;
-        for (let i = 0; i < files.length; i += maxParallel) {
-            const batch = files.slice(i, i + maxParallel);
-            const fetchPromises = batch.map(file => fetchFile(ownerRepo, branch, file.path));
-            const results = await Promise.all(fetchPromises);
-            results.forEach(text => fileContentContainer.textContent += text);
-        }
+        const ul = buildTreeList(root);
+        fileTreeContainer.appendChild(ul);
 
-        repoInfo.textContent += " | All files loaded.";
     } catch (err) {
         repoInfo.textContent = `Error: ${err.message}`;
     }
 }
 
-// Fetch individual file and format output
-async function fetchFile(ownerRepo, branch, path) {
-    const rawUrl = `https://raw.githubusercontent.com/${ownerRepo}/${branch}/${path}`;
-    try {
-        const res = await fetch(rawUrl);
-        let content;
-        if (!res.ok) {
-            content = `\n\n===== ${path} =====\nError loading file: ${res.statusText}\n`;
+// Build HTML list recursively
+function buildTreeList(tree) {
+    const ul = document.createElement("ul");
+    for (const key in tree) {
+        if (key.startsWith("_")) continue;
+        const li = document.createElement("li");
+        li.textContent = key;
+        li.className = tree[key]._type === "tree" ? "folder" : "file";
+
+        if (tree[key]._type === "tree") {
+            li.appendChild(buildTreeList(tree[key]));
         } else {
-            const text = await res.text();
-            // Only display files smaller than 1MB to avoid freezing browser
-            if (text.length > 1024 * 1024) {
-                content = `\n\n===== ${path} =====\n[File too large to display]\n`;
-            } else {
-                content = `\n\n===== ${path} =====\n${text}\n`;
-            }
+            li.onclick = async () => {
+                if (li.querySelector("pre")) return; // already loaded
+                const pre = document.createElement("pre");
+                pre.textContent = `Loading ${tree[key]._path}...`;
+                li.appendChild(pre);
+                try {
+                    const res = await fetch(`https://raw.githubusercontent.com/${repoInput.value}/${(await getDefaultBranch(repoInput.value))}/${tree[key]._path}`);
+                    pre.textContent = res.ok ? await res.text() : `Error: ${res.statusText}`;
+                    Prism.highlightAll(); // syntax highlighting
+                } catch (err) {
+                    pre.textContent = `Error: ${err.message}`;
+                }
+            };
         }
-        return content;
-    } catch (err) {
-        return `\n\n===== ${path} =====\nError: ${err.message}\n`;
+
+        ul.appendChild(li);
     }
+    return ul;
+}
+
+// Fetch default branch dynamically
+async function getDefaultBranch(ownerRepo) {
+    const repoRes = await fetch(`https://api.github.com/repos/${ownerRepo}`);
+    if (!repoRes.ok) throw new Error("Failed to fetch repo info.");
+    const repoData = await repoRes.json();
+    return repoData.default_branch || "main";
 }
 
 // Button click
@@ -68,11 +88,11 @@ loadBtn.onclick = () => {
     if (repo) loadRepository(repo);
 };
 
-// Detect appended GitHub URL and auto-load
+// Detect appended URL and auto-load
 function checkURL() {
-    let path = decodeURIComponent(window.location.pathname.replace(/^\/+/, ""));
-    if (path.startsWith("https://github.com/")) {
-        const match = path.match(/github\.com\/([^\/]+\/[^\/]+)/);
+    const url = decodeURIComponent(window.location.href);
+    if (url.includes("github.com/")) {
+        const match = url.match(/github\.com\/([^\/]+\/[^\/]+)/);
         if (match) {
             const ownerRepo = match[1];
             repoInput.value = ownerRepo;
