@@ -1,13 +1,11 @@
 const repoInput = document.getElementById("repoInput");
 const loadBtn = document.getElementById("loadBtn");
-const fileTreeContainer = document.getElementById("fileTree");
 const fileContentContainer = document.getElementById("fileContent");
 const repoInfo = document.getElementById("repoInfo");
 
-// Function to fetch repo file tree from GitHub API
+// Load repository and all files
 async function loadRepository(ownerRepo, branch = "main") {
     repoInfo.textContent = `Loading ${ownerRepo}...`;
-    fileTreeContainer.innerHTML = "";
     fileContentContainer.textContent = "";
 
     const apiUrl = `https://api.github.com/repos/${ownerRepo}/git/trees/${branch}?recursive=1`;
@@ -18,54 +16,54 @@ async function loadRepository(ownerRepo, branch = "main") {
         const data = await res.json();
 
         repoInfo.textContent = `Repository: ${ownerRepo} (branch: ${branch})`;
-        buildFileTree(data.tree, ownerRepo, branch);
+
+        const files = data.tree.filter(item => item.type === "blob");
+
+        fileContentContainer.textContent = `Fetching ${files.length} files...\n`;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            await loadFile(ownerRepo, branch, file.path);
+        }
+
+        fileContentContainer.textContent += `\nAll files loaded.`;
     } catch (err) {
         repoInfo.textContent = `Error: ${err.message}`;
     }
 }
 
-// Build file tree
-function buildFileTree(tree, ownerRepo, branch) {
-    const ul = document.createElement("ul");
-    tree.forEach(item => {
-        if (item.type === "blob") {
-            const li = document.createElement("li");
-            li.textContent = item.path;
-            li.onclick = () => loadFile(ownerRepo, branch, item.path);
-            ul.appendChild(li);
-        }
-    });
-    fileTreeContainer.appendChild(ul);
-}
-
-// Load individual file content
+// Load a single file and append it
 async function loadFile(ownerRepo, branch, path) {
     const rawUrl = `https://raw.githubusercontent.com/${ownerRepo}/${branch}/${path}`;
-    fileContentContainer.textContent = `Loading ${path}...`;
     try {
         const res = await fetch(rawUrl);
-        if (!res.ok) throw new Error("Failed to load file.");
+        if (!res.ok) throw new Error(`Failed to load ${path}`);
         const text = await res.text();
-        fileContentContainer.textContent = text;
+
+        fileContentContainer.textContent += `\n\n===== ${path} =====\n`;
+        fileContentContainer.textContent += text;
     } catch (err) {
-        fileContentContainer.textContent = `Error: ${err.message}`;
+        fileContentContainer.textContent += `\n\n===== ${path} =====\nError loading file: ${err.message}\n`;
     }
 }
 
-// Button click
+// Button click event
 loadBtn.onclick = () => {
     const repo = repoInput.value.trim();
     if (repo) loadRepository(repo);
 };
 
-// Check URL path for auto-loading
+// Check URL path for appended GitHub repo
 function checkURL() {
     let path = window.location.pathname.replace(/^\/+/, "");
-    // Decode in case of URL-encoded repo URLs
     path = decodeURIComponent(path);
     if (path.startsWith("https://github.com/")) {
-        repoInput.value = path.match(/github\.com\/([^\/]+\/[^\/]+)/)[1];
-        loadRepository(repoInput.value);
+        const match = path.match(/github\.com\/([^\/]+\/[^\/]+)/);
+        if (match) {
+            const ownerRepo = match[1];
+            repoInput.value = ownerRepo;
+            loadRepository(ownerRepo);
+        }
     }
 }
 
