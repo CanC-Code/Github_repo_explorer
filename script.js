@@ -3,6 +3,9 @@ const loadBtn = document.getElementById("loadBtn");
 const fileTreeContainer = document.getElementById("fileTree");
 const repoInfo = document.getElementById("repoInfo");
 
+// Flag to toggle "load all files immediately"
+const loadAllFiles = true; // set to true to load everything at once
+
 // Load repository and display all files
 async function loadRepository(ownerRepo) {
     repoInfo.textContent = `Fetching repository info for ${ownerRepo}...`;
@@ -35,6 +38,12 @@ async function loadRepository(ownerRepo) {
 
         const ul = buildTreeList(root, ownerRepo, branch);
         fileTreeContainer.appendChild(ul);
+
+        // If loadAllFiles is true, automatically click all files
+        if (loadAllFiles) {
+            const fileElements = fileTreeContainer.querySelectorAll("li.file");
+            fileElements.forEach(li => li.click());
+        }
 
     } catch (err) {
         repoInfo.textContent = `Error: ${err.message}`;
