@@ -1,22 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>GitHub Repo Explorer</title>
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Repo Explorer</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h2>GitHub Repo Explorer</h2>
+    <header>
+        <h1>GitHub Repo Explorer</h1>
+        <p>View repository files directly from GitHub</p>
+    </header>
 
-<div id="controls">
-  <label>Repo (owner/repo): <input type="text" id="repoInput" placeholder="owner/repo"></label>
-  <label>Branch: <input type="text" id="branchInput" value="master"></label>
-  <button id="loadBtn">Load Repo</button>
-</div>
+    <main>
+        <div class="input-container">
+            <input type="text" id="repoInput" placeholder="Enter GitHub repo (owner/repo)">
+            <button id="loadBtn">Load Repository</button>
+        </div>
+        <div id="repoInfo"></div>
+        <div id="fileTree"></div>
+        <pre id="fileContent"></pre>
+    </main>
 
-<div id="fileTree"></div>
-<textarea id="fileContent" placeholder="File contents appear here"></textarea>
-
-<script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
