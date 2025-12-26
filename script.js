@@ -81,7 +81,14 @@ function buildTreeList(tree, ownerRepo, branch) {
 
 // --- Button click ---
 loadBtn.onclick = () => {
-    const repo = repoInput.value.trim();
+    let repo = repoInput.value.trim();
+
+    // If input is a full GitHub URL, extract owner/repo
+    const urlMatch = repo.match(/github\.com\/([^\/]+\/[^\/]+)(\/|$)/i);
+    if (urlMatch) {
+        repo = urlMatch[1]; // Extracted owner/repo
+    }
+
     if (repo) loadRepository(repo);
 };
 
