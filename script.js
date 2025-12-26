@@ -92,17 +92,28 @@ loadBtn.onclick = () => {
     if (repo) loadRepository(repo);
 };
 
-// --- Auto-detect GitHub URL from query param ?repo= ---
+// --- Auto-detect GitHub repo from pathname or query param ---
 function checkURL() {
     const params = new URLSearchParams(window.location.search);
-    const githubUrl = params.get("repo");
-    if (githubUrl) {
-        const match = githubUrl.match(/github\.com\/([^\/]+\/[^\/]+)/);
-        if (match) {
-            const ownerRepo = match[1];
-            repoInput.value = ownerRepo;
-            loadRepository(ownerRepo);
+    let repo = params.get("repo"); // Check query param first
+
+    if (!repo) {
+        // Extract from pathname
+        let path = window.location.pathname.replace(/^\/+/, "").replace(/\/$/, "");
+
+        // If path is a full GitHub URL, extract owner/repo
+        const urlMatch = path.match(/github\.com\/([^\/]+\/[^\/]+)/i);
+        if (urlMatch) {
+            repo = urlMatch[1];
+        } else if (path.includes("/")) {
+            // Assume owner/repo format
+            repo = path;
         }
+    }
+
+    if (repo) {
+        repoInput.value = repo;
+        loadRepository(repo);
     }
 }
 
