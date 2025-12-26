@@ -89,36 +89,29 @@ loadBtn.onclick = () => {
         repo = urlMatch[1]; // Extracted owner/repo
     }
 
-    if (repo) loadRepository(repo);
+    if (repo) {
+        // Update hash for shareable URL
+        window.location.hash = repoInput.value.trim();
+        loadRepository(repo);
+    }
 };
 
-// --- Auto-detect GitHub repo from pathname or query param ---
+// --- Auto-detect GitHub repo from hash or query param ---
 function checkURL() {
     const params = new URLSearchParams(window.location.search);
     let repo = params.get("repo"); // Check query param first
 
-    if (!repo) {
-        // Extract from pathname
-        let path = window.location.pathname.replace(/^\/+/, "").replace(/\/$/, "");
-        path = decodeURIComponent(path); // Decode URL-encoded characters
-
-        // Remove the base folder if your app is not at root
-        const baseFolder = "Github_repo_explorer/";
-        if (path.startsWith(baseFolder)) {
-            path = path.slice(baseFolder.length);
-        }
-
-        // If path is a full GitHub URL, extract owner/repo
-        const urlMatch = path.match(/github\.com\/([^\/]+\/[^\/]+)/i);
-        if (urlMatch) {
-            repo = urlMatch[1];
-        } else if (path.includes("/")) {
-            // Assume owner/repo format
-            repo = path;
-        }
+    if (!repo && window.location.hash) {
+        // Use hash if no query param
+        repo = window.location.hash.slice(1); // remove the leading #
     }
 
     if (repo) {
+        // If it's a full GitHub URL, extract owner/repo
+        const urlMatch = repo.match(/github\.com\/([^\/]+\/[^\/]+)/i);
+        if (urlMatch) {
+            repo = urlMatch[1];
+        }
         repoInput.value = repo;
         loadRepository(repo);
     }
