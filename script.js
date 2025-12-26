@@ -100,6 +100,13 @@ function checkURL() {
     if (!repo) {
         // Extract from pathname
         let path = window.location.pathname.replace(/^\/+/, "").replace(/\/$/, "");
+        path = decodeURIComponent(path); // Decode URL-encoded characters
+
+        // Remove the base folder if your app is not at root
+        const baseFolder = "Github_repo_explorer/";
+        if (path.startsWith(baseFolder)) {
+            path = path.slice(baseFolder.length);
+        }
 
         // If path is a full GitHub URL, extract owner/repo
         const urlMatch = path.match(/github\.com\/([^\/]+\/[^\/]+)/i);
