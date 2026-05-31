@@ -1,0 +1,64 @@
+name: Export Codebase Context
+
+on:
+  workflow_dispatch: # Allows manual generation from the Actions tab
+  push:
+    branches: [ "main", "master" ] # Automatically adapts to standard default branches
+
+jobs:
+  gather-context:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1 # Standard shallow clone is sufficient for context compilation
+
+    - name: Compile Codebase into Singular Text File
+      run: |
+        OUTPUT_FILE="codebase_review.txt"
+        
+        # Metadata Header for clear review tracking
+        echo "================================================================" > $OUTPUT_FILE
+        echo "CODEBASE CONTEXT EXPORT" >> $OUTPUT_FILE
+        echo "Repository: ${{ github.repository }}" >> $OUTPUT_FILE
+        echo "Commit SHA: ${{ github.sha }}" >> $OUTPUT_FILE
+        echo "Generated:  $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $OUTPUT_FILE
+        echo "================================================================" >> $OUTPUT_FILE
+
+        # 1. Use 'git ls-files -z' to safely handle spaces/special characters in paths.
+        # 2. This natively respects your .gitignore, instantly bypassing node_modules, build/ target/, venv/, etc.
+        git ls-files -z | sort -z | while IFS= read -r -d '' file; do
+            
+            # Ensure it's a regular file (skips broken symlinks if any exist)
+            [ -f "$file" ] || continue
+
+            # Exclude heavy dependency lockfiles that pollute LLM context windows
+            case "$file" in
+                *package-lock.json|*yarn.lock|*pnpm-lock.yaml|*Cargo.lock|*Gemfile.lock|*poetry.lock|*go.sum|*composer.lock)
+                    continue
+                    ;;
+            esac
+
+            # Robust Text vs. Binary Validation
+            # 'grep -I' treats binary files as non-matching. '.' ensures the file contains text.
+            if grep -q -I . "$file"; then
+                echo -e "\n\n================================================================" >> $OUTPUT_FILE
+                echo "FILE: $file" >> $OUTPUT_FILE
+                echo "================================================================" >> $OUTPUT_FILE
+                cat "$file" >> $OUTPUT_FILE
+            elif [ ! -s "$file" ]; then
+                # Handle explicitly empty text files cleanly without skipping their existence
+                echo -e "\n\n================================================================" >> $OUTPUT_FILE
+                echo "FILE: $file [Empty File]" >> $OUTPUT_FILE
+                echo "================================================================" >> $OUTPUT_FILE
+            fi
+        done
+
+    - name: Upload Codebase Context Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: codebase-review-context
+        path: codebase_review.txt
+        retention-days: 7 # Automatically cleans up after a week to save storage
