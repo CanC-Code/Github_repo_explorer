@@ -1,38 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Transformers.js Chat</title>
-  <link rel="stylesheet" href="styles.css" />
-  <!-- Cache-busting for script -->
-  <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.10.0/dist/transformers.min.js?v=20260531"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>GitHub Repo Explorer &amp; AI Architect</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"/>
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
-  <div class="container">
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <h1>AI Chat</h1>
-      <button id="initAiBtn" class="btn">Initialize AI</button>
-      <div id="statusText" class="status-idle">Click 'Initialize AI' to start</div>
-    </div>
 
-    <!-- Main Chat Area -->
-    <div class="chat-area">
-      <div id="chatOutput" class="chat-output"></div>
-      <div class="input-area">
-        <input 
-          type="text" 
-          id="chatInput" 
-          placeholder="Type your message..." 
-          autocomplete="off"
-        />
-        <button id="sendBtn" class="btn" onclick="sendMessage()">Send</button>
-      </div>
+<header>
+  <div class="header-inner">
+    <span class="header-icon">&#11042;</span>
+    <div>
+      <h1>Repo Explorer <span class="accent">&amp; AI Architect</span></h1>
+      <p>Browse GitHub repos &middot; Review code with a local on-device LLM &middot; Zero data leaves your browser</p>
     </div>
   </div>
+</header>
 
-  <!-- Load the fixed main JS -->
-  <script src="app.js?v=20260531"></script>
+<main>
+  <div id="explorer-ui" class="repo-input-row">
+    <input type="text" id="repoInput" placeholder="owner/repo or full GitHub URL" autocomplete="off" spellcheck="false">
+    <button id="loadBtn" class="btn-primary">Load Repo</button>
+  </div>
+  <div id="repoInfo" class="repo-info"></div>
+
+  <div class="workspace-container">
+
+    <!-- FILE EXPLORER PANEL -->
+    <div class="panel explorer-panel">
+      <div class="panel-header">
+        <h2>&#128193; Codebase</h2>
+        <label class="toggle-label" title="Auto-fetch all file contents when repo loads">
+          <input type="checkbox" id="autoLoadToggle"> Auto-load
+        </label>
+      </div>
+      <div id="fileTree" class="file-tree"></div>
+    </div>
+
+    <!-- AI ASSISTANT PANEL -->
+    <div class="panel ai-panel">
+      <div class="panel-header">
+        <h2>&#129302; Local AI <span class="badge">On-Device</span></h2>
+      </div>
+
+      <div class="ai-controls">
+        <select id="modelSelect">
+          <!-- HuggingFaceTB models have ONNX built-in, work directly with Transformers.js -->
+          <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2 360M &mdash; Mobile Best (~130MB)</option>
+          <option value="HuggingFaceTB/SmolLM2-135M-Instruct">SmolLM2 135M &mdash; Fastest / Lowest RAM (~50MB)</option>
+          <option value="HuggingFaceTB/SmolLM2-1.7B-Instruct">SmolLM2 1.7B &mdash; Smarter (~640MB)</option>
+          <option value="onnx-community/Qwen2.5-Coder-0.5B-Instruct">Qwen2.5 Coder 0.5B &mdash; Code-focused (~200MB)</option>
+        </select>
+        <button id="initAiBtn" class="btn-primary">Initialize</button>
+        <button id="clearChatBtn" class="btn-secondary" title="Clear conversation">&#128465;</button>
+      </div>
+
+      <div id="aiStatus" class="status-box">Status: Ready. Select a model and tap Initialize.</div>
+
+      <div id="progressContainer" class="progress-container hidden">
+        <div class="progress-bar-track">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+        <span id="progressLabel" class="progress-label">0%</span>
+      </div>
+
+      <div id="chatWindow" class="chat-window">
+        <div class="chat-welcome">
+          <p>&#128075; Initialize a model above, then ask anything.<br>
+          Load a repo and tap <strong>&ldquo;Ask AI&rdquo;</strong> on any file to review it.</p>
+        </div>
+      </div>
+
+      <div class="chat-input-row">
+        <textarea id="chatInput"
+          placeholder="Ask about code, bugs, architecture&hellip;"
+          disabled
+          rows="2"></textarea>
+        <button id="sendChatBtn" class="btn-send" disabled title="Send">&#9650;</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Prism syntax highlighting (regular scripts so global Prism is available to module script) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+
+<!-- v=5 cache buster — bump this number after every deploy -->
+<script type="module" src="script.js?v=5"></script>
 </body>
 </html>
