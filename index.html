@@ -50,11 +50,10 @@
 
       <div class="ai-controls">
         <select id="modelSelect">
-          <option value="SmolLM2-360M-Instruct-q4f32_1-MLC">SmolLM2 360M q4f32 &mdash; Mobile / High Compat (580MB)</option>
-          <option value="SmolLM2-360M-Instruct-q4f16_1-MLC">SmolLM2 360M q4f16 &mdash; Mobile, needs shader-f16 (376MB)</option>
-          <option value="Qwen2.5-Coder-1.5B-Instruct-q4f32_1-MLC">Qwen2.5 Coder 1.5B q4f32 &mdash; Standard (1.9GB)</option>
-          <option value="Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC">Qwen2.5 Coder 1.5B q4f16 &mdash; Standard (1.6GB)</option>
-          <option value="Phi-3-mini-4k-instruct-q4f32_1-MLC">Phi-3 Mini 4K q4f32 &mdash; Desktop (5.5GB)</option>
+          <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2 360M &mdash; Mobile recommended (~200MB)</option>
+          <option value="HuggingFaceTB/SmolLM2-1.7B-Instruct">SmolLM2 1.7B &mdash; Smarter, more VRAM (~900MB)</option>
+          <option value="Qwen/Qwen2.5-Coder-1.5B-Instruct">Qwen2.5 Coder 1.5B &mdash; Code-focused (~800MB)</option>
+          <option value="microsoft/Phi-3-mini-4k-instruct">Phi-3 Mini 4K &mdash; Desktop GPU (~2.5GB)</option>
         </select>
         <button id="initAiBtn" class="btn-primary">Initialize</button>
         <button id="clearChatBtn" class="btn-secondary" title="Clear conversation">&#128465;</button>
