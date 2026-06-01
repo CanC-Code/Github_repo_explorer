@@ -1,3 +1,5 @@
+@charset "UTF-8";
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
@@ -69,7 +71,6 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* Structural Split Screen Layout */
 .workspace-container {
     display: flex;
     gap: 1.5rem;
@@ -119,12 +120,16 @@ li:hover {
     background: #313244;
 }
 
-li.folder::before { content: "📁 "; color: #f9e2af; }
-li.file::before { content: "📄 "; color: #89b4fa; }
+/* Hardcoded Unicode guarantees encoding preservation */
+li.folder::before { 
+    content: "\1F4C1 \0020"; 
+}
+li.file::before { 
+    content: "\1F4C4 \0020"; 
+}
 
-/* Review buttons nestled alongside files */
 .file-ai-btn {
-    padding: 0.1rem 0.4rem;
+    padding: 0.2rem 0.5rem;
     font-size: 0.75rem;
     margin-right: 0.5rem;
     background: #f38ba8;
@@ -133,7 +138,6 @@ li.file::before { content: "📄 "; color: #89b4fa; }
     display: inline-block;
 }
 
-/* Local LLM Chat UI Components */
 .ai-controls {
     display: flex;
     align-items: center;
