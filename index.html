@@ -1,99 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GitHub Repo Explorer &amp; AI Architect</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"/>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transformers.js Chat</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Cache-busting for script -->
+  <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.10.0/dist/transformers.min.js?v=20260531"></script>
 </head>
 <body>
-
-<header>
-  <div class="header-inner">
-    <span class="header-icon">&#11042;</span>
-    <div>
-      <h1>Repo Explorer <span class="accent">&amp; AI Architect</span></h1>
-      <p>Browse public GitHub repositories &middot; Review code with a local WebGPU LLM &middot; Zero data leaves your browser</p>
-    </div>
-  </div>
-</header>
-
-<main>
-  <div id="explorer-ui" class="repo-input-row">
-    <input type="text" id="repoInput" placeholder="owner/repo or full GitHub URL" autocomplete="off" spellcheck="false">
-    <button id="loadBtn" class="btn-primary">Load Repo</button>
-  </div>
-  <div id="repoInfo" class="repo-info"></div>
-
-  <div class="workspace-container">
-
-    <!-- FILE EXPLORER PANEL -->
-    <div class="panel explorer-panel">
-      <div class="panel-header">
-        <h2>&#128193; Codebase</h2>
-        <label class="toggle-label" title="Auto-fetch all file contents when repo loads">
-          <input type="checkbox" id="autoLoadToggle"> Auto-load files
-        </label>
-      </div>
-      <div id="fileTree" class="file-tree"></div>
+  <div class="container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <h1>AI Chat</h1>
+      <button id="initAiBtn" class="btn">Initialize AI</button>
+      <div id="statusText" class="status-idle">Click 'Initialize AI' to start</div>
     </div>
 
-    <!-- AI ASSISTANT PANEL -->
-    <div class="panel ai-panel">
-      <div class="panel-header">
-        <h2>&#129302; Local AI <span class="badge">WebGPU</span></h2>
-      </div>
-
-      <div class="ai-controls">
-        <select id="modelSelect">
-          <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2 360M &mdash; Mobile recommended (~200MB)</option>
-          <option value="HuggingFaceTB/SmolLM2-1.7B-Instruct">SmolLM2 1.7B &mdash; Smarter, more VRAM (~900MB)</option>
-          <option value="Qwen/Qwen2.5-Coder-1.5B-Instruct">Qwen2.5 Coder 1.5B &mdash; Code-focused (~800MB)</option>
-          <option value="microsoft/Phi-3-mini-4k-instruct">Phi-3 Mini 4K &mdash; Desktop GPU (~2.5GB)</option>
-        </select>
-        <button id="initAiBtn" class="btn-primary">Initialize</button>
-        <button id="clearChatBtn" class="btn-secondary" title="Clear conversation">&#128465;</button>
-      </div>
-
-      <div id="aiStatus" class="status-box">Status: Ready. Select a model and click Initialize.</div>
-
-      <div id="progressContainer" class="progress-container hidden">
-        <div id="progressBar" class="progress-bar"></div>
-        <span id="progressLabel" class="progress-label">0%</span>
-      </div>
-
-      <div id="chatWindow" class="chat-window">
-        <div class="chat-welcome">
-          <p>&#128075; Initialize a model above, then ask anything.<br>
-          Load a repo and click <strong>&ldquo;Ask AI&rdquo;</strong> on any file to send it into context.</p>
-        </div>
-      </div>
-
-      <div class="chat-input-row">
-        <textarea id="chatInput"
-          placeholder="Ask about code, architecture, bugs&hellip; (Enter to send, Shift+Enter for newline)"
-          disabled
-          rows="2"></textarea>
-        <button id="sendChatBtn" class="btn-send" disabled title="Send (Enter)">&#9650;</button>
+    <!-- Main Chat Area -->
+    <div class="chat-area">
+      <div id="chatOutput" class="chat-output"></div>
+      <div class="input-area">
+        <input 
+          type="text" 
+          id="chatInput" 
+          placeholder="Type your message..." 
+          autocomplete="off"
+        />
+        <button id="sendBtn" class="btn" onclick="sendMessage()">Send</button>
       </div>
     </div>
-
   </div>
-</main>
 
-<!-- Prism: core + language packs loaded as regular scripts (not module) so Prism global is available -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
-
-<script type="module" src="script.js"></script>
+  <!-- Load the fixed main JS -->
+  <script src="app.js?v=20260531"></script>
 </body>
 </html>
