@@ -4,7 +4,7 @@ const fileTreeContainer = document.getElementById("fileTree");
 const repoInfo = document.getElementById("repoInfo");
 
 // Flag to toggle "load all files immediately"
-const loadAllFiles = true; 
+const loadAllFiles = true;
 
 // --- Load repository and display files ---
 async function loadRepository(ownerRepo) {
@@ -20,7 +20,6 @@ async function loadRepository(ownerRepo) {
         const treeRes = await fetch(`https://api.github.com/repos/${ownerRepo}/git/trees/${branch}?recursive=1`);
         if (!treeRes.ok) throw new Error("Failed to fetch repo tree.");
         const treeData = await treeRes.json();
-
         repoInfo.textContent = `Repository: ${ownerRepo} (branch: ${branch}) | ${treeData.tree.length} items`;
 
         const root = {};
@@ -42,7 +41,6 @@ async function loadRepository(ownerRepo) {
         }
 
         window.__github_explorer_files = { ownerRepo, branch, files: treeData.tree };
-
     } catch (err) {
         repoInfo.textContent = `Error: ${err.message}`;
     }
@@ -61,14 +59,14 @@ function buildTreeList(tree, ownerRepo, branch) {
             li.appendChild(buildTreeList(tree[key], ownerRepo, branch));
         } else {
             li.onclick = async () => {
-                if (li.querySelector("pre")) return; 
+                if (li.querySelector("pre")) return;
                 const pre = document.createElement("pre");
                 pre.textContent = `Loading ${tree[key]._path}...`;
                 li.appendChild(pre);
                 try {
                     const res = await fetch(`https://raw.githubusercontent.com/${ownerRepo}/${branch}/${tree[key]._path}`);
                     pre.textContent = res.ok ? await res.text() : `Error: ${res.statusText}`;
-                    Prism.highlightAll(); 
+                    Prism.highlightAll();
                 } catch (err) {
                     pre.textContent = `Error: ${err.message}`;
                 }
@@ -82,7 +80,6 @@ function buildTreeList(tree, ownerRepo, branch) {
 // --- Button click ---
 loadBtn.onclick = () => {
     let repo = repoInput.value.trim();
-
     // If input is a full GitHub URL, extract owner/repo
     const urlMatch = repo.match(/github\.com\/([^\/]+\/[^\/]+)(\/|$)/i);
     if (urlMatch) {
