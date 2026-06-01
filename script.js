@@ -145,6 +145,7 @@ function appendAiUtilityLink(listItem, filePath, fileContent) {
     listItem.insertBefore(aiBtn, listItem.firstChild);
 }
 
+// Fixed API logic using CreateMLCEngine
 async function initializeAiEngine() {
     const selectedModel = modelSelect.value;
     initAiBtn.disabled = true;
@@ -161,7 +162,9 @@ async function initializeAiEngine() {
     };
 
     try {
-        aiEngine = await webllm.CreateEngine(selectedModel, { initProgressCallback });
+        // CHANGED: webllm.CreateEngine -> webllm.CreateMLCEngine
+        aiEngine = await webllm.CreateMLCEngine(selectedModel, { initProgressCallback });
+        
         aiStatus.textContent = `Success: Model running locally on WebGPU!`;
         aiStatus.style.color = "#a6e3a1";
         progressBar.style.width = "100%";
