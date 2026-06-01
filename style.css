@@ -120,7 +120,7 @@ li:hover {
     background: #313244;
 }
 
-/* Hardcoded Unicode guarantees encoding preservation */
+/* Fixed Text Render Failure: Hardcoded Unicode guarantees encoding preservation */
 li.folder::before { 
     content: "\1F4C1 \0020"; 
 }
