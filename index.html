@@ -3,48 +3,96 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GitHub Repo Explorer & AI Architect</title>
+<title>GitHub Repo Explorer &amp; AI Architect</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"/>
 <link rel="stylesheet" href="style.css">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet"/>
 </head>
 <body>
+
 <header>
-    <h1>GitHub Repo Explorer & AI Architect</h1>
-    <p>Browse public GitHub repositories and review code locally using zero-cost Browser WebGPU LLMs</p>
+  <div class="header-inner">
+    <span class="header-icon">&#11042;</span>
+    <div>
+      <h1>Repo Explorer <span class="accent">&amp; AI Architect</span></h1>
+      <p>Browse public GitHub repositories &middot; Review code with a local WebGPU LLM &middot; Zero data leaves your browser</p>
+    </div>
+  </div>
 </header>
+
 <main>
-    <div id="explorer-ui" class="input-container">
-        <input type="text" id="repoInput" placeholder="Enter GitHub repo (owner/repo)">
-        <button id="loadBtn">Load Repository</button>
+  <div id="explorer-ui" class="repo-input-row">
+    <input type="text" id="repoInput" placeholder="owner/repo or full GitHub URL" autocomplete="off" spellcheck="false">
+    <button id="loadBtn" class="btn-primary">Load Repo</button>
+  </div>
+  <div id="repoInfo" class="repo-info"></div>
+
+  <div class="workspace-container">
+
+    <!-- FILE EXPLORER PANEL -->
+    <div class="panel explorer-panel">
+      <div class="panel-header">
+        <h2>&#128193; Codebase</h2>
+        <label class="toggle-label" title="Auto-fetch all file contents when repo loads">
+          <input type="checkbox" id="autoLoadToggle"> Auto-load files
+        </label>
+      </div>
+      <div id="fileTree" class="file-tree"></div>
     </div>
-    <div id="repoInfo"></div>
-    <div class="workspace-container">
-        <div class="panel explorer-panel">
-            <h2>Codebase Structure</h2>
-            <div id="fileTree"></div>
+
+    <!-- AI ASSISTANT PANEL -->
+    <div class="panel ai-panel">
+      <div class="panel-header">
+        <h2>&#129302; Local AI <span class="badge">WebGPU</span></h2>
+      </div>
+
+      <div class="ai-controls">
+        <select id="modelSelect">
+          <option value="SmolLM-360M-Instruct-q4f16_1-MLC">SmolLM 360M &mdash; Mobile / High Compat</option>
+          <option value="Phi-3-mini-4k-instruct-q4f16_1-MLC">Phi-3 Mini 4K &mdash; Standard</option>
+          <option value="Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC">Qwen 2.5 Coder 1.5B &mdash; Desktop GPU</option>
+        </select>
+        <button id="initAiBtn" class="btn-primary">Initialize</button>
+        <button id="clearChatBtn" class="btn-secondary" title="Clear conversation">&#128465;</button>
+      </div>
+
+      <div id="aiStatus" class="status-box">Status: Ready. Select a model and click Initialize.</div>
+
+      <div id="progressContainer" class="progress-container hidden">
+        <div id="progressBar" class="progress-bar"></div>
+        <span id="progressLabel" class="progress-label">0%</span>
+      </div>
+
+      <div id="chatWindow" class="chat-window">
+        <div class="chat-welcome">
+          <p>&#128075; Initialize a model above, then ask anything.<br>
+          Load a repo and click <strong>&ldquo;Ask AI&rdquo;</strong> on any file to send it into context.</p>
         </div>
-        <div class="panel ai-panel">
-            <h2>Local AI Assistant (WebGPU)</h2>
-            <div class="ai-controls">
-                <label for="modelSelect">Model:</label>
-                <select id="modelSelect">
-                    <option value="SmolLM-360M-Instruct-q4f16_1-MLC">SmolLM 360M (Mobile Optimized - HIGH COMPATIBILITY)</option>
-                    <option value="Phi-3-mini-4k-instruct-q4f16_1-MLC">Phi-3 Mini 4K (Standard)</option>
-                </select>
-                <button id="initAiBtn">Initialize Model</button>
-            </div>
-            <div id="aiStatus" class="status-box">Status: Ready.</div>
-            <div id="progressContainer" class="progress-container hidden">
-                <div id="progressBar" class="progress-bar"></div>
-            </div>
-            <div id="chatWindow" class="chat-window"></div>
-            <div class="chat-input-container">
-                <textarea id="chatInput" placeholder="Ask a question..." disabled></textarea>
-                <button id="sendChatBtn" disabled>Send</button>
-            </div>
-        </div>
+      </div>
+
+      <div class="chat-input-row">
+        <textarea id="chatInput"
+          placeholder="Ask about code, architecture, bugs&hellip; (Enter to send, Shift+Enter for newline)"
+          disabled
+          rows="2"></textarea>
+        <button id="sendChatBtn" class="btn-send" disabled title="Send (Enter)">&#9650;</button>
+      </div>
     </div>
+
+  </div>
 </main>
+
+<!-- Prism: core + language packs loaded as regular scripts (not module) so Prism global is available -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+
 <script type="module" src="script.js"></script>
 </body>
 </html>
