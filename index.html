@@ -3,15 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GitHub Repo Explorer</title>
+<title>GitHub Repo Explorer & AI Architect</title>
 <link rel="stylesheet" href="style.css">
-<!-- Prism.js for syntax highlighting -->
 <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet"/>
 </head>
 <body>
 <header>
-    <h1>GitHub Repo Explorer</h1>
-    <p>Browse any public GitHub repository files at once</p>
+    <h1>GitHub Repo Explorer & AI Architect</h1>
+    [span_0](start_span)<p>Browse public GitHub repositories and review code locally using zero-cost Browser WebGPU LLMs[span_0](end_span)</p>
 </header>
 
 <main>
@@ -19,16 +18,58 @@
         <input type="text" id="repoInput" placeholder="Enter GitHub repo (owner/repo)">
         <button id="loadBtn">Load Repository</button>
     </div>
+    
     <div id="repoInfo"></div>
-    <div id="fileTree"></div>
+
+    <div class="workspace-container">
+        
+        <div class="panel explorer-panel">
+            <h2>Codebase Structure</h2>
+            <div id="fileTree"></div>
+        </div>
+
+        <div class="panel ai-panel">
+            <h2>Local AI Assistant (WebGPU)</h2>
+            
+            <div class="ai-controls">
+                <label for="modelSelect">Model:</label>
+                <select id="modelSelect">
+                    <option value="Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC">Qwen 2.5 Coder 1.5B (Fast, Code Optimized)</option>
+                    <option value="Phi-3-mini-4k-instruct-q4f16_1-MLC">Phi-3 Mini 4K (General Purpose)</option>
+                    <option value="Llama-3-8B-Instruct-q4f16_1-MLC">Llama 3 8B (High Quality, Requires 8GB+ VRAM)</option>
+                </select>
+                <button id="initAiBtn">Initialize Model</button>
+            </div>
+
+            <div id="aiStatus" class="status-box">Status: AI Engine Offline. WebGPU browser required.</div>
+            <div id="progressContainer" class="progress-container hidden">
+                <div id="progressBar" class="progress-bar"></div>
+            </div>
+
+            <div id="chatWindow" class="chat-window">
+                <div class="system-message">System: Click "Initialize Model" to spin up the local LLM engine. You can prompt the AI directly or click files to evaluate context.</div>
+            </div>
+
+            <div class="context-actions">
+                <button id="injectRepoBtn" disabled>Inject Full Repo Context</button>
+                <button id="clearChatBtn">Clear Chat</button>
+            </div>
+
+            <div class="chat-input-container">
+                <textarea id="chatInput" placeholder="Ask a question about the code or prompt an update..." disabled></textarea>
+                <button id="sendChatBtn" disabled>Send</button>
+            </div>
+        </div>
+        
+    </div>
 </main>
 
-<!-- Prism.js for syntax highlighting -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
-<script src="script.js"></script>
+
+<script type="module" src="script.js"></script>
 </body>
 </html>
