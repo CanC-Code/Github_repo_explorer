@@ -1,67 +1,97 @@
 @charset "UTF-8";
 
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+/* ── Reset ───────────────────────────────────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    background: #1e1e2e;
-    color: #cdd6f4;
 }
 
+/* ── Base ────────────────────────────────────────────────────── */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    min-height: 100vh;
+    line-height: 1.5;
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
 header {
     background: #11111b;
     color: #a6e3a1;
-    padding: 1rem;
+    padding: 0.9rem 1rem;
     text-align: center;
     border-bottom: 2px solid #313244;
 }
 
 header h1 {
-    margin: 0;
-    font-size: 1.6rem;
+    font-size: 1.4rem;
+    font-weight: 800;
 }
 
 header p {
-    margin: 0.3rem 0 0;
-    font-size: 0.85rem;
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
     color: #a6adc8;
 }
 
+/* ── Main ────────────────────────────────────────────────────── */
 main {
     padding: 1rem;
     max-width: 1600px;
     margin: 0 auto;
 }
 
+/* ── Repo input row ──────────────────────────────────────────── */
 .input-container {
     display: flex;
     gap: 0.5rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 input[type="text"] {
     flex: 1;
-    padding: 0.6rem;
-    font-size: 1rem;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.95rem;
     background: #313244;
     border: 1px solid #45475a;
     color: #cdd6f4;
     border-radius: 6px;
+    min-width: 0;
 }
 
+input[type="text"]:focus {
+    outline: none;
+    border-color: #89b4fa;
+}
+
+input[type="text"]::placeholder {
+    color: #585b70;
+}
+
+#repoInfo {
+    font-size: 0.8rem;
+    color: #a6adc8;
+    margin-bottom: 0.75rem;
+    min-height: 1em;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
 button {
-    padding: 0.6rem 1.2rem;
-    font-size: 1rem;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
     cursor: pointer;
     background: #a6e3a1;
     color: #11111b;
     border: none;
-    font-weight: bold;
+    font-weight: 700;
     border-radius: 6px;
-    transition: background 0.2s ease;
+    transition: background 0.15s;
+    white-space: nowrap;
 }
 
-button:hover {
+button:hover:not(:disabled) {
     background: #94e2d5;
 }
 
@@ -71,14 +101,24 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* Structural Split Dashboard Viewports */
+/* ── Workspace layout ────────────────────────────────────────── */
 .workspace-container {
     display: flex;
-    gap: 1.5rem;
-    margin-top: 1rem;
-    height: 75vh;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    /* Use min-height so panels grow with content on mobile instead of clipping */
+    min-height: 60vh;
 }
 
+/* Stack panels vertically on phones */
+@media (max-width: 800px) {
+    .workspace-container {
+        flex-direction: column;
+        min-height: unset;
+    }
+}
+
+/* ── Panels ──────────────────────────────────────────────────── */
 .panel {
     flex: 1;
     background: #181825;
@@ -88,90 +128,224 @@ button:disabled {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-width: 0;
 }
 
 .panel h2 {
     margin-top: 0;
-    font-size: 1.2rem;
+    font-size: 1rem;
     border-bottom: 1px solid #313244;
     padding-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
     color: #cba6f7;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.badge {
+    background: #313244;
+    color: #a6adc8;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 0.15em 0.5em;
+    border-radius: 4px;
+}
+
+/* ── File tree ───────────────────────────────────────────────── */
+.explorer-panel {
+    /* Allow the file tree to scroll independently */
+    min-height: 200px;
 }
 
 #fileTree {
     flex: 1;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #45475a transparent;
+}
+
+.loading-tree {
+    color: #a6adc8;
+    font-size: 0.85rem;
+    padding: 0.5rem;
 }
 
 ul {
     list-style: none;
-    padding-left: 1.2rem;
+    padding-left: 0;
     margin: 0;
+}
+
+ul ul {
+    padding-left: 1rem;
+    border-left: 1px solid #313244;
+    margin-left: 0.4rem;
 }
 
 li {
     cursor: pointer;
-    padding: 0.4rem 0.5rem;
+    padding: 0.25rem 0.4rem;
     border-radius: 4px;
-    transition: background 0.15s;
+    transition: background 0.12s;
     position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
 }
 
 li:hover {
     background: #313244;
 }
 
-/* Escaped Unicode strings avoid text rendering conversion corruption */
-li.folder::before { 
-    content: "\1F4C1 \0020"; 
-}
-li.file::before { 
-    content: "\1F4C4 \0020"; 
+li.folder::before {
+    content: "\1F4C1\0020";
+    flex-shrink: 0;
 }
 
+li.file::before {
+    content: "\1F4C4\0020";
+    flex-shrink: 0;
+}
+
+.item-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    font-family: 'Courier New', monospace;
+}
+
+/* Folder open/close indicator */
+.item-label.open {
+    color: #cba6f7;
+}
+
+/* Folder children collapse */
+.folder-children.collapsed {
+    display: none;
+}
+
+/* Ask AI button — visible on hover/tap */
 .file-ai-btn {
-    padding: 0.2rem 0.5rem;
-    font-size: 0.75rem;
-    margin-right: 0.6rem;
+    padding: 0.15rem 0.45rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: #313244;
+    color: #f38ba8;
+    border: 1px solid #f38ba8;
+    border-radius: 4px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+}
+
+li:hover .file-ai-btn,
+li:focus-within .file-ai-btn {
+    opacity: 1;
+}
+
+.file-ai-btn:hover:not(:disabled) {
     background: #f38ba8;
     color: #11111b;
-    border-radius: 4px;
-    display: inline-block;
 }
 
-/* Local Engine Management Visual Components */
+/* Code block inside file tree */
+li pre {
+    width: 100%;
+    margin: 0.3rem 0 0.4rem 0;
+    background: #11111b;
+    padding: 0.5rem;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    border-radius: 4px;
+    border: 1px solid #313244;
+    font-size: 0.78rem;
+    max-height: 350px;
+    overflow-y: auto;
+}
+
+li pre.collapsed {
+    display: none;
+}
+
+/* ── AI panel ────────────────────────────────────────────────── */
+.ai-panel {
+    /* Fixed height with internal scroll on desktop; auto on mobile */
+    height: 75vh;
+    min-height: 400px;
+}
+
+@media (max-width: 800px) {
+    .ai-panel {
+        height: auto;
+        min-height: 500px;
+    }
+}
+
+/* ── Model controls ──────────────────────────────────────────── */
 .ai-controls {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.6rem;
+    flex-wrap: wrap;
 }
 
 select {
     flex: 1;
-    padding: 0.5rem;
+    min-width: 0;
+    padding: 0.55rem 0.65rem;
     background: #313244;
     color: #cdd6f4;
     border: 1px solid #45475a;
-    border-radius: 4px;
+    border-radius: 6px;
+    font-size: 0.83rem;
+    cursor: pointer;
 }
 
+select:focus {
+    outline: none;
+    border-color: #89b4fa;
+}
+
+/* ── Status box ──────────────────────────────────────────────── */
 .status-box {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     background: #11111b;
-    padding: 0.5rem;
+    padding: 0.5rem 0.75rem;
     border-radius: 4px;
     color: #fab387;
     margin-bottom: 0.5rem;
-    word-break: break-all;
+    word-break: break-word;
+    line-height: 1.5;
 }
 
+.status-box small {
+    color: #585b70;
+    display: block;
+    margin-top: 0.2rem;
+}
+
+.status-box.status-ready {
+    color: #a6e3a1;
+}
+
+.status-box.status-error {
+    color: #f38ba8;
+}
+
+/* ── Progress bar ────────────────────────────────────────────── */
 .progress-container {
     width: 100%;
     background: #313244;
-    height: 6px;
+    height: 5px;
     border-radius: 3px;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     overflow: hidden;
 }
 
@@ -179,9 +353,23 @@ select {
     width: 0%;
     height: 100%;
     background: #a6e3a1;
-    transition: width 0.1s linear;
+    transition: width 0.15s linear;
 }
 
+/* Indeterminate animation — shown while silent loading is in progress */
+.progress-bar.indeterminate {
+    width: 40%;
+    animation: indeterminate-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes indeterminate-slide {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+}
+
+.hidden { display: none !important; }
+
+/* ── Chat window ─────────────────────────────────────────────── */
 .chat-window {
     flex: 1;
     background: #11111b;
@@ -189,23 +377,28 @@ select {
     border-radius: 6px;
     padding: 0.75rem;
     overflow-y: auto;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-}
-
-.chat-msg {
-    padding: 0.5rem;
-    border-radius: 6px;
-    max-width: 90%;
+    gap: 0.6rem;
+    min-height: 120px;
+    scrollbar-width: thin;
+    scrollbar-color: #45475a transparent;
 }
 
 .system-message {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: #94e2d5;
     font-style: italic;
     text-align: center;
+    padding: 0.25rem;
+}
+
+.chat-msg {
+    padding: 0.5rem 0.65rem;
+    border-radius: 6px;
+    max-width: 92%;
+    word-break: break-word;
 }
 
 .user-msg {
@@ -218,13 +411,13 @@ select {
     background: #1e1e2e;
     align-self: flex-start;
     border-left: 3px solid #a6e3a1;
-    width: 90%;
+    width: 92%;
 }
 
 .msg-header {
-    font-size: 0.75rem;
-    font-weight: bold;
-    margin-bottom: 0.25rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
     color: #bac2de;
 }
 
@@ -232,12 +425,13 @@ select {
     margin: 0;
     padding: 0;
     white-space: pre-wrap;
-    font-family: monospace;
-    font-size: 0.9rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.88rem;
     background: transparent;
     color: #cdd6f4;
 }
 
+/* ── Context action buttons ──────────────────────────────────── */
 .context-actions {
     display: flex;
     gap: 0.5rem;
@@ -252,42 +446,68 @@ select {
     color: #cdd6f4;
 }
 
-.context-actions button:hover {
+.context-actions button:hover:not(:disabled) {
     background: #585b70;
 }
 
+/* ── Chat input ──────────────────────────────────────────────── */
 .chat-input-container {
     display: flex;
     gap: 0.5rem;
+    align-items: flex-end;
 }
 
 textarea {
     flex: 1;
-    height: 50px;
-    padding: 0.5rem;
+    min-height: 48px;
+    max-height: 120px;
+    padding: 0.55rem 0.65rem;
     background: #313244;
     border: 1px solid #45475a;
     color: #cdd6f4;
     border-radius: 6px;
-    resize: none;
+    resize: vertical;
     font-family: sans-serif;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: #89b4fa;
 }
 
 textarea:disabled {
     background: #181825;
     cursor: not-allowed;
+    opacity: 0.6;
 }
 
-pre {
+textarea::placeholder {
+    color: #585b70;
+    font-size: 0.82rem;
+}
+
+#sendChatBtn {
+    padding: 0.55rem 0.9rem;
+    font-size: 1rem;
+    align-self: flex-end;
+}
+
+/* ── Global pre (Prism output) ───────────────────────────────── */
+pre:not(.msg-body) {
     background: #11111b;
     padding: 0.5rem;
     overflow-x: auto;
     white-space: pre-wrap;
-    margin-top: 0.5rem;
+    margin-top: 0.4rem;
     border-radius: 4px;
     border: 1px solid #313244;
+    font-size: 0.82rem;
 }
 
-.hidden {
-    display: none !important;
-}
+/* ── Scrollbars ──────────────────────────────────────────────── */
+::-webkit-scrollbar              { width: 5px; height: 5px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: #45475a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover  { background: #585b70; }
