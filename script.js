@@ -2,7 +2,7 @@ import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transfo
 
 // System Configuration: Extreme memory conservation for constrained mobile architectures
 env.allowLocalModels = false;
-env.backends.onnx.wasm.numThreads = 1; // FORCED SINGLE THREAD: Prevents Android from killing the tab due to multi-allocation RAM spikes
+env.backends.onnx.wasm.numThreads = 1; // FORCED SINGLE THREAD: Prevents out-of-memory RAM spikes
 
 // DOM Binding Registry
 const repoInput = document.getElementById("repoInput");
@@ -152,19 +152,19 @@ async function initializeAiEngine() {
     const selectedModel = modelSelect.value;
     initAiBtn.disabled = true;
     modelSelect.disabled = true;
-    aiStatus.textContent = "Booting ONNX Engine in low-memory mode...";
+    aiStatus.textContent = "Booting ONNX Engine in strict q4-quantized memory mode...";
     aiStatus.style.color = "#cdd6f4";
     progressContainer.classList.remove("hidden");
 
     try {
         aiEngine = await pipeline('text-generation', selectedModel, {
             device: 'wasm',
-            dtype: 'q4f16', // Quantized 4-bit memory safety
+            dtype: 'q4', // FIXED: Native Transformers.js 4-bit compression target (forces tiny RAM footprint)
             progress_callback: (x) => {
                 if (x.status === 'progress') {
                     progressBar.style.width = `${(x.loaded / x.total) * 100}%`;
                 } else if (x.status === 'init') {
-                    aiStatus.textContent = `Allocating secure memory bounds: ${x.file}`;
+                    aiStatus.textContent = `Mapping secure tensors: ${x.file}`;
                 } else if (x.status === 'ready') {
                     aiStatus.textContent = `Success: Single-Thread WASM Engine Active.`;
                     aiStatus.style.color = "#a6e3a1";
@@ -175,7 +175,7 @@ async function initializeAiEngine() {
             }
         });
         
-        appendChatMessage("System", "Compute engine successfully mapped to available RAM. Inference will process directly on a single CPU thread to prevent memory overflow.");
+        appendChatMessage("System", "Compute engine successfully mapped to available RAM. Memory quantization set to q4. Inference will process directly on a single CPU thread to prevent memory overflow.");
     } catch (error) {
         aiStatus.textContent = `Initialization Terminated: ${error.message}`;
         aiStatus.style.color = "#f38ba8";
