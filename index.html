@@ -10,7 +10,7 @@
 <body>
 <header>
     <h1>GitHub Repo Explorer & AI Architect</h1>
-    <p>Browse public GitHub repositories and review code locally using zero-cost Browser WebGPU LLMs</p>
+    <p>Browse public GitHub repositories and review code locally using zero-cost CPU/WASM LLMs</p>
 </header>
 
 <main>
@@ -28,12 +28,13 @@
         </div>
 
         <div class="panel ai-panel">
-            <h2>Local AI Assistant (WebGPU Mobile-Optimized)</h2>
+            <h2>Local AI Assistant (ONNX WASM Engine)</h2>
             
             <div class="ai-controls">
                 <label for="modelSelect">Model:</label>
                 <select id="modelSelect">
-                    <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">Qwen 2.5 0.5B (Ultra-Light / Android-Safe)</option>
+                    <option value="onnx-community/Qwen2.5-0.5B-Instruct">Qwen 2.5 0.5B (ONNX / CPU Optimized)</option>
+                    <option value="Xenova/TinyLlama-1.1B-Chat-v1.0">TinyLlama 1.1B (ONNX / CPU Optimized)</option>
                 </select>
                 <button id="initAiBtn">Initialize Model</button>
             </div>
@@ -44,7 +45,7 @@
             </div>
 
             <div id="chatWindow" class="chat-window">
-                <div class="system-message">System: Click "Initialize Model" to spin up the local LLM engine. Ensure WebGPU is activated in chrome://flags if running on mobile hardware.</div>
+                <div class="system-message">System: Click "Initialize Model" to spin up the local LLM. This engine bypasses WebGPU limitations by utilizing multi-threaded WebAssembly.</div>
             </div>
 
             <div class="context-actions">
