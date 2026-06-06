@@ -1,516 +1,296 @@
-// ============================================================
-//  GitHub Repo Explorer + AI Architect  —  script.js  v5
-//
-//  Library: Transformers.js v3 (HuggingFace)
-//  CDN: https://cdn.jsdelivr.net/npm/@huggingface/transformers@3
-//
-//  Key fixes vs previous version:
-//   - dtype changed from invalid "q4f16" to correct "q4"
-//   - WebGPU → WASM CPU fallback if GPU init fails
-//   - TextStreamer used correctly (subclass override pattern)
-//   - Conversation history push/pop logic cleaned up
-//   - Output extracted via output[0].generated_text.at(-1).content
-//   - initAiBtn re-enabled cleanly on error with class reset
-// ============================================================
+import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 
-import {
-    pipeline,
-    TextStreamer,
-    env
-} from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.js";
-
-// Load models from HuggingFace hub only (no local models in browser)
-env.allowLocalModels = false;
-
-// ── DOM refs ──────────────────────────────────────────────────
-const repoInput         = document.getElementById("repoInput");
-const loadBtn           = document.getElementById("loadBtn");
+// DOM Binding Nodes
+const repoInput = document.getElementById("repoInput");
+const loadBtn = document.getElementById("loadBtn");
 const fileTreeContainer = document.getElementById("fileTree");
-const repoInfo          = document.getElementById("repoInfo");
-const autoLoadToggle    = document.getElementById("autoLoadToggle");
-const modelSelect       = document.getElementById("modelSelect");
-const initAiBtn         = document.getElementById("initAiBtn");
-const clearChatBtn      = document.getElementById("clearChatBtn");
-const aiStatus          = document.getElementById("aiStatus");
+const repoInfo = document.getElementById("repoInfo");
+
+const modelSelect = document.getElementById("modelSelect");
+const initAiBtn = document.getElementById("initAiBtn");
+const aiStatus = document.getElementById("aiStatus");
 const progressContainer = document.getElementById("progressContainer");
-const progressBar       = document.getElementById("progressBar");
-const progressLabel     = document.getElementById("progressLabel");
-const chatWindow        = document.getElementById("chatWindow");
-const chatInput         = document.getElementById("chatInput");
-const sendChatBtn       = document.getElementById("sendChatBtn");
+const progressBar = document.getElementById("progressBar");
+const chatWindow = document.getElementById("chatWindow");
+const chatInput = document.getElementById("chatInput");
+const sendChatBtn = document.getElementById("sendChatBtn");
+const injectRepoBtn = document.getElementById("injectRepoBtn");
+const clearChatBtn = document.getElementById("clearChatBtn");
 
-// ── State ─────────────────────────────────────────────────────
-let generator    = null;   // Transformers.js text-generation pipeline
-let isGenerating = false;
-let usingWasm    = false;  // true if WebGPU failed and we fell back to CPU
+// Application Work-State Registry
+const loadAllFiles = true; // Automatically load contents to generate workspace context maps
+let aiEngine = null;
+let chatHistory = [];
+let fullCodebaseContext = "";
 
-// Conversation history — array of { role, content }
-// NOTE: only stores user+assistant turns; system prompt is rebuilt each call
-const conversationHistory = [];
-
-// Loaded file cache: path → content string
-const fileCache = {};
-
-// ── Progress callback helper ──────────────────────────────────
-function onProgress(p) {
-    if (p.status === "downloading" || p.status === "progress") {
-        const pct = p.progress !== undefined ? Math.round(p.progress) : 0;
-        progressBar.style.width = `${pct}%`;
-        progressLabel.textContent = `${pct}%`;
-        const fname = p.file ? p.file.split("/").pop() : "";
-        aiStatus.textContent = `Downloading${fname ? " " + fname : ""}… ${pct}%`;
-    } else if (p.status === "initiate") {
-        aiStatus.textContent = `Preparing ${p.file ? p.file.split("/").pop() : "model"}…`;
-    } else if (p.status === "loading") {
-        aiStatus.textContent = "Loading weights into memory…";
-    } else if (p.status === "ready") {
-        aiStatus.textContent = "Finalizing…";
+// Immediate Environment Diagnostics Pipeline
+window.addEventListener("DOMContentLoaded", () => {
+    if (window.location.protocol === 'file:') {
+        aiStatus.textContent = "CRITICAL LIMITATION: Running via file:// protocol. WebLLM requires a local web server instance to load assets via ESM imports.";
+        aiStatus.style.color = "#f38ba8";
+        initAiBtn.disabled = true;
+    } else if (!navigator.gpu) {
+        aiStatus.textContent = "CRITICAL LIMITATION: WebGPU is missing or disabled in this browser profile. Navigate to chrome://flags to toggle WebGPU subsystems.";
+        aiStatus.style.color = "#f38ba8";
+        initAiBtn.disabled = true;
     }
-}
-
-// ── AI Engine Init ────────────────────────────────────────────
-async function initializeAiEngine() {
-    const modelId = modelSelect.value;
-    initAiBtn.disabled = true;
-    aiStatus.className = "status-box";  // reset any error/ready class
-    aiStatus.textContent = "Starting… (first load downloads model, then cached)";
-    progressContainer.classList.remove("hidden");
-    progressBar.style.width = "0%";
-    progressLabel.textContent = "0%";
-    usingWasm = false;
-
-    // Try WebGPU first, fall back to WASM (CPU) if unavailable
-    // dtype "q4" = 4-bit int quantization — smallest, fastest, works on mobile
-    const configs = [
-        { device: "webgpu", dtype: "q4",  label: "WebGPU (GPU)" },
-        { device: "wasm",   dtype: "q8",  label: "CPU (WebAssembly fallback)" },
-    ];
-
-    let lastError = null;
-    for (const cfg of configs) {
-        try {
-            aiStatus.textContent = `Trying ${cfg.label}…`;
-            generator = await pipeline("text-generation", modelId, {
-                device: cfg.device,
-                dtype:  cfg.dtype,
-                progress_callback: onProgress,
-            });
-            usingWasm = cfg.device === "wasm";
-            break; // success
-        } catch (err) {
-            lastError = err;
-            generator = null;
-            console.warn(`${cfg.label} failed:`, err.message);
-            // Reset progress for next attempt
-            progressBar.style.width = "0%";
-            progressLabel.textContent = "0%";
-        }
-    }
-
-    if (!generator) {
-        const msg = lastError?.message || "Unknown error";
-        aiStatus.textContent = `❌ Failed to load model: ${msg}`;
-        aiStatus.classList.add("status-error");
-        initAiBtn.disabled = false;
-        progressContainer.classList.add("hidden");
-        return;
-    }
-
-    // Success
-    progressBar.style.width = "100%";
-    progressLabel.textContent = "100%";
-    const modeLabel = usingWasm ? " (CPU mode — slower)" : " (GPU accelerated)";
-    aiStatus.textContent = `✅ Ready — ${modelId.split("/").pop()}${modeLabel}`;
-    aiStatus.classList.add("status-ready");
-    chatInput.disabled   = false;
-    sendChatBtn.disabled = false;
-    chatInput.focus();
-    chatWindow.querySelector(".chat-welcome")?.remove();
-    appendMessage("assistant",
-        `Model loaded${modeLabel}! Ask me anything. Load a GitHub repo and tap **"Ask AI"** on any file to discuss it.`
-    );
-}
-
-initAiBtn.addEventListener("click", initializeAiEngine);
-
-// ── Message rendering ─────────────────────────────────────────
-function appendMessage(role, text) {
-    const div = document.createElement("div");
-    div.className = `chat-message ${role}-message`;
-    div.innerHTML = renderMarkdown(text);
-    chatWindow.appendChild(div);
-    chatWindow.scrollTop = chatWindow.scrollHeight;
-    return div;
-}
-
-// Minimal safe markdown renderer for chat bubbles
-function renderMarkdown(text) {
-    return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        // fenced code blocks
-        .replace(/```[\w]*\n?([\s\S]*?)```/g, "<pre><code>$1</code></pre>")
-        // inline code
-        .replace(/`([^`\n]+)`/g, "<code>$1</code>")
-        // bold
-        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        // newlines to <br> (but not inside pre blocks)
-        .replace(/\n/g, "<br>");
-}
-
-// ── Build message array for the model ────────────────────────
-// Constructs: [system, ...history]
-// Does NOT include the new user message — caller appends it separately
-function buildSystemPrompt() {
-    const paths = Object.keys(fileCache);
-    if (paths.length === 0) {
-        return "You are a helpful coding assistant. Be concise and accurate.";
-    }
-    const fileBlock = paths.map(p => {
-        const content = fileCache[p];
-        // Truncate large files to stay within model context limits on mobile
-        const body = content.length > 4000
-            ? content.slice(0, 4000) + "\n\n[...truncated for context limit...]"
-            : content;
-        return `=== FILE: ${p} ===\n${body}`;
-    }).join("\n\n");
-    return (
-        "You are a helpful coding assistant. " +
-        "The user has loaded the following repository files:\n\n" +
-        fileBlock +
-        "\n\nAnswer questions about this codebase concisely. " +
-        "Reference file names and line numbers where relevant."
-    );
-}
-
-// ── Send a chat message ───────────────────────────────────────
-async function sendMessage(prefill) {
-    const userText = (prefill !== undefined ? prefill : chatInput.value).trim();
-    if (!userText || !generator || isGenerating) return;
-
-    chatInput.value     = "";
-    chatInput.disabled  = true;
-    sendChatBtn.disabled = true;
-    isGenerating        = true;
-
-    // Render user bubble
-    appendMessage("user", userText);
-
-    // Build full messages array: system + prior history + new user turn
-    const messages = [
-        { role: "system",    content: buildSystemPrompt() },
-        ...conversationHistory,
-        { role: "user",      content: userText },
-    ];
-
-    // Placeholder AI bubble with cursor
-    const aiDiv = appendMessage("assistant", "");
-    aiDiv.innerHTML = `<span class="typing-cursor">▌</span>`;
-    let streamedText = "";
-
-    try {
-        // Subclass TextStreamer to intercept token callbacks.
-        // on_finalized_text is the correct Transformers.js v3 override point.
-        class UIStreamer extends TextStreamer {
-            on_finalized_text(text, streamEnd) {
-                streamedText += text;
-                aiDiv.innerHTML =
-                    renderMarkdown(streamedText) +
-                    (streamEnd ? "" : `<span class="typing-cursor">▌</span>`);
-                chatWindow.scrollTop = chatWindow.scrollHeight;
-            }
-        }
-
-        const streamer = new UIStreamer(generator.tokenizer, {
-            skip_prompt:          true,
-            skip_special_tokens:  true,
-        });
-
-        await generator(messages, {
-            max_new_tokens:  512,
-            temperature:     0.7,
-            do_sample:       true,
-            streamer,
-        });
-
-        // If streamer emitted nothing (some WASM paths), fall back to output extraction
-        if (!streamedText) {
-            const out = await generator(messages, {
-                max_new_tokens: 512,
-                temperature:    0.7,
-                do_sample:      true,
-            });
-            // Transformers.js chat pipeline returns generated_text as array of messages;
-            // the last entry is the assistant reply
-            const lastMsg = out[0]?.generated_text;
-            streamedText = Array.isArray(lastMsg)
-                ? (lastMsg.at(-1)?.content ?? "")
-                : (typeof lastMsg === "string" ? lastMsg : "");
-            aiDiv.innerHTML = renderMarkdown(streamedText);
-        }
-
-        // Store exchange in history
-        conversationHistory.push({ role: "user",      content: userText });
-        conversationHistory.push({ role: "assistant", content: streamedText });
-
-        // Keep history from growing too large on mobile (last 10 turns = 20 entries)
-        while (conversationHistory.length > 20) {
-            conversationHistory.splice(0, 2);
-        }
-
-    } catch (err) {
-        aiDiv.innerHTML = `<span class="error-text">❌ ${err.message}</span>`;
-        console.error("Generation error:", err);
-    }
-
-    isGenerating        = false;
-    chatInput.disabled  = false;
-    sendChatBtn.disabled = false;
-    chatInput.focus();
-    chatWindow.scrollTop = chatWindow.scrollHeight;
-}
-
-sendChatBtn.addEventListener("click",  () => sendMessage());
-chatInput.addEventListener("keydown",  (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-});
-clearChatBtn.addEventListener("click", () => {
-    conversationHistory.length = 0;
-    chatWindow.innerHTML = "";
-    appendMessage("assistant", "Conversation cleared. What would you like to work on?");
 });
 
-// ── File fetching ─────────────────────────────────────────────
-async function fetchFileContent(li, ownerRepo, branch) {
-    if (li.dataset.loaded === "true") return;
-    li.dataset.loaded = "true";
-
-    const path = li.dataset.path;
-
-    // Avoid double-injecting pre if already present
-    if (li.querySelector("pre")) return;
-
-    const pre  = document.createElement("pre");
-    const code = document.createElement("code");
-    const ext  = path.split(".").pop().toLowerCase();
-    const langMap = {
-        js:"language-javascript", mjs:"language-javascript",
-        ts:"language-typescript",
-        py:"language-python",
-        c:"language-c", cpp:"language-c", cc:"language-c", h:"language-c",
-        html:"language-markup", htm:"language-markup", xml:"language-markup",
-        css:"language-css",
-        json:"language-json",
-        yml:"language-yaml", yaml:"language-yaml",
-        sh:"language-bash", bash:"language-bash",
-        md:"language-markdown",
-        kt:"language-kotlin", java:"language-java",
-    };
-    code.className = langMap[ext] || "";
-    code.textContent = "Loading…";
-    pre.appendChild(code);
-    li.appendChild(pre);
+// --- Repository Loader Matrix ---
+async function loadRepository(ownerRepo) {
+    repoInfo.textContent = `Querying GitHub API manifests for ${ownerRepo}...`;
+    fileTreeContainer.innerHTML = "";
+    fullCodebaseContext = `REPOSITORY CONTEXT MAP EXPORT: ${ownerRepo}\n====================================================\n`;
+    injectRepoBtn.disabled = true;
 
     try {
-        const url = `https://raw.githubusercontent.com/${ownerRepo}/${branch}/${encodeURIComponent(path)}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        const text = await res.text();
-        code.textContent = text;
-        fileCache[path]  = text;
-        if (window.Prism) Prism.highlightElement(code);
+        const repoRes = await fetch(`https://api.github.com/repos/${ownerRepo}`);
+        if (!repoRes.ok) throw new Error("Target repository records unreadable or missing.");
+        const repoData = await repoRes.json();
+        const branch = repoData.default_branch || "main";
+        
+        const treeRes = await fetch(`https://api.github.com/repos/${ownerRepo}/git/trees/${branch}?recursive=1`);
+        if (!treeRes.ok) throw new Error("Failed to index repository architecture maps.");
+        const treeData = await treeRes.json();
+        repoInfo.textContent = `Repository Asset Node: ${ownerRepo} (${branch}) | ${treeData.tree.length} elements detected`;
+
+        const root = {};
+        treeData.tree.forEach(item => {
+            const parts = item.path.split("/");
+            let cur = root;
+            parts.forEach((part, i) => {
+                if (!cur[part]) cur[part] = { _type: i === parts.length - 1 ? item.type : "tree", _path: item.path };
+                cur = cur[part];
+            });
+        });
+        
+        const ul = buildTreeList(root, ownerRepo, branch);
+        fileTreeContainer.appendChild(ul);
+
+        if (loadAllFiles) {
+            const fileElements = fileTreeContainer.querySelectorAll("li.file");
+            fileElements.forEach(li => li.click());
+        }
+
+        window.__github_explorer_files = { ownerRepo, branch, files: treeData.tree };
+        injectRepoBtn.disabled = false;
     } catch (err) {
-        code.textContent  = `Error loading file: ${err.message}`;
-        li.dataset.loaded = "false";
+        repoInfo.textContent = `Exploration Interrupted: ${err.message}`;
     }
 }
 
-// ── File tree builder ─────────────────────────────────────────
+// --- Recursive Tree Interface Compiler ---
 function buildTreeList(tree, ownerRepo, branch) {
-    const ul   = document.createElement("ul");
-    const keys = Object.keys(tree).filter(k => !k.startsWith("_"));
-
-    // Folders first, then files, both alphabetical
-    keys.sort((a, b) => {
-        const aT = tree[a]._type === "tree";
-        const bT = tree[b]._type === "tree";
-        if (aT && !bT) return -1;
-        if (!aT && bT)  return 1;
-        return a.localeCompare(b);
-    });
-
-    for (const key of keys) {
-        const node = tree[key];
-        const li   = document.createElement("li");
-
-        if (node._type === "tree") {
-            // ── Folder ──
-            li.className = "folder";
-            const label  = document.createElement("span");
-            label.className   = "item-label";
-            label.textContent = key;
-            li.appendChild(label);
-
-            const childUl = buildTreeList(node, ownerRepo, branch);
-            childUl.classList.add("folder-children", "collapsed");
-            li.appendChild(childUl);
-
-            label.addEventListener("click", (e) => {
-                e.stopPropagation();
-                childUl.classList.toggle("collapsed");
-                label.classList.toggle("open");
-            });
-
+    const ul = document.createElement("ul");
+    for (const key in tree) {
+        if (key.startsWith("_")) continue;
+        const li = document.createElement("li");
+        li.textContent = key;
+        li.className = tree[key]._type === "tree" ? "folder" : "file";
+        
+        if (tree[key]._type === "tree") {
+            li.appendChild(buildTreeList(tree[key], ownerRepo, branch));
         } else {
-            // ── File ──
-            li.className      = "file";
-            li.dataset.path   = node._path;
-            li.dataset.loaded = "false";
-
-            const label = document.createElement("span");
-            label.className   = "item-label";
-            label.textContent = key;
-            li.appendChild(label);
-
-            const askBtn = document.createElement("button");
-            askBtn.className   = "ask-ai-btn";
-            askBtn.textContent = "Ask AI";
-            askBtn.title       = "Load this file and discuss it with the AI";
-            li.appendChild(askBtn);
-
-            // Tap filename → toggle code view
-            label.addEventListener("click", async (e) => {
+            li.onclick = async (e) => {
                 e.stopPropagation();
-                const pre = li.querySelector("pre");
-                if (pre) { pre.classList.toggle("collapsed"); return; }
-                await fetchFileContent(li, ownerRepo, branch);
-            });
-
-            // Tap Ask AI → load file + pre-fill prompt
-            askBtn.addEventListener("click", async (e) => {
-                e.stopPropagation();
-                if (!generator) {
-                    aiStatus.textContent = "⚠️ Initialize a model first.";
-                    document.querySelector(".ai-panel").scrollIntoView({ behavior: "smooth" });
-                    return;
+                if (li.querySelector("pre")) return;
+                
+                const pre = document.createElement("pre");
+                pre.textContent = `Streaming data array from ${tree[key]._path}...`;
+                li.appendChild(pre);
+                
+                try {
+                    const res = await fetch(`https://raw.githubusercontent.com/${ownerRepo}/${branch}/${tree[key]._path}`);
+                    if (res.ok) {
+                        const fileContent = await res.text();
+                        
+                        // Parse extension for target token styling matching Prism dictionary rules
+                        const ext = tree[key]._path.split('.').pop().toLowerCase();
+                        let lang = 'javascript';
+                        if (ext === 'html') lang = 'markup';
+                        else if (ext === 'css') lang = 'css';
+                        else if (ext === 'py') lang = 'python';
+                        else if (ext === 'cpp' || ext === 'c' || ext === 'h' || ext === 'hpp') lang = 'cpp';
+                        
+                        pre.innerHTML = `<code class="language-${lang}"></code>`;
+                        const codeBlock = pre.querySelector('code');
+                        codeBlock.textContent = fileContent;
+                        
+                        fullCodebaseContext += `\n\nTARGET SOURCE FILE: ${tree[key]._path}\n====================================================\n${fileContent}\n`;
+                        appendAiUtilityLink(li, tree[key]._path, fileContent);
+                        
+                        Prism.highlightElement(codeBlock);
+                    } else {
+                        pre.textContent = `Streaming Fault: HTTP status response flag returned ${res.statusText}`;
+                    }
+                } catch (err) {
+                    pre.textContent = `Connection Fault: ${err.message}`;
                 }
-                askBtn.textContent = "Loading…";
-                askBtn.disabled    = true;
-                await fetchFileContent(li, ownerRepo, branch);
-                askBtn.textContent = "Ask AI";
-                askBtn.disabled    = false;
-                document.querySelector(".ai-panel").scrollIntoView({ behavior: "smooth" });
-                chatInput.value = `Please review \`${node._path}\` — summarise what it does, highlight any notable patterns, and flag any potential issues.`;
-                chatInput.focus();
-            });
+            };
         }
-
         ul.appendChild(li);
     }
     return ul;
 }
 
-// ── Repo loading ──────────────────────────────────────────────
-async function loadRepository(ownerRepo) {
-    repoInfo.textContent          = `Fetching ${ownerRepo}…`;
-    fileTreeContainer.innerHTML   = '<div class="loading-tree">Loading tree…</div>';
-    // Clear old file cache
-    Object.keys(fileCache).forEach(k => delete fileCache[k]);
+// Injects contextual assessment link controls inside listed folder nodes
+function appendAiUtilityLink(listItem, filePath, fileContent) {
+    if (listItem.querySelector(".file-ai-btn")) return;
+    const aiBtn = document.createElement("button");
+    aiBtn.textContent = "Review Code Segment";
+    aiBtn.className = "file-ai-btn";
+    aiBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (!aiEngine) {
+            alert("Local AI Processing Engine offline. Complete initialization steps on the workspace management panel first.");
+            return;
+        }
+        chatInput.value = `Perform a structure review on the following file target for logic errors, optimizations, or layout vulnerabilities:\n\nPath Element: ${filePath}\n\`\`\`\n${fileContent}\n\`\`\``;
+        chatInput.focus();
+    };
+    listItem.insertBefore(aiBtn, listItem.firstChild);
+}
+
+// --- Mobile Memory-Constrained Local AI Engine Framework ---
+async function initializeAiEngine() {
+    const selectedModel = modelSelect.value;
+    initAiBtn.disabled = true;
+    modelSelect.disabled = true;
+    aiStatus.textContent = "Assembling processing workers and loading compilation configurations...";
+    aiStatus.style.color = "#cdd6f4";
+    progressContainer.classList.remove("hidden");
+
+    // Live progress updating matrix hooking tensor downloads directly from HuggingFace
+    const initProgressCallback = (report) => {
+        aiStatus.textContent = report.text;
+        if (report.progress !== undefined) {
+            progressBar.style.width = `${report.progress * 100}%`;
+        }
+    };
 
     try {
-        const repoRes = await fetch(`https://api.github.com/repos/${ownerRepo}`);
-        if (!repoRes.ok) throw new Error(`Repo not found or rate-limited (HTTP ${repoRes.status})`);
-        const repoData = await repoRes.json();
-        const branch   = repoData.default_branch || "main";
-
-        const treeRes = await fetch(
-            `https://api.github.com/repos/${ownerRepo}/git/trees/${branch}?recursive=1`
-        );
-        if (!treeRes.ok) throw new Error(`Failed to fetch tree (HTTP ${treeRes.status})`);
-        const treeData = await treeRes.json();
-
-        const fileCount = treeData.tree.filter(i => i.type === "blob").length;
-        repoInfo.textContent = `${ownerRepo} · ${branch} · ${fileCount} files`;
-
-        // Build nested object tree from flat path list
-        const root = {};
-        for (const item of treeData.tree) {
-            const parts = item.path.split("/");
-            let   cur   = root;
-            parts.forEach((part, i) => {
-                if (!cur[part]) cur[part] = {
-                    _type: i === parts.length - 1 ? item.type : "tree",
-                    _path: item.path,
-                };
-                cur = cur[part];
-            });
-        }
-
-        fileTreeContainer.innerHTML = "";
-        fileTreeContainer.appendChild(buildTreeList(root, ownerRepo, branch));
-        window.__github_explorer_files = { ownerRepo, branch, files: treeData.tree };
-
-        if (autoLoadToggle.checked) {
-            for (const li of fileTreeContainer.querySelectorAll("li[data-path]")) {
-                await fetchFileContent(li, ownerRepo, branch);
+        // Strict hardware parameter configurations engineered specifically to prevent mobile driver crashes at 100% loading
+        const constrainedConfig = {
+            initProgressCallback: initProgressCallback,
+            contextWindowSize: 2048, // Shrinks internal attention matrix structures to fit low VRAM constraints
+            kvConfig: {
+                numLayers: 16, // Forces structural boundaries to run safely inside 16KB execution pools
             }
-        }
+        };
 
-    } catch (err) {
-        fileTreeContainer.innerHTML = "";
-        repoInfo.textContent        = `❌ Error: ${err.message}`;
+        // Initialize Web Worker instance mapping execution tensors off the browser interface window
+        aiEngine = await webllm.CreateMLCEngine(selectedModel, constrainedConfig);
+        
+        aiStatus.textContent = `Local Engine active via WebGPU. Target model verified: ${selectedModel}`;
+        aiStatus.style.color = "#a6e3a1";
+        progressBar.style.width = "100%";
+        
+        chatInput.disabled = false;
+        sendChatBtn.disabled = false;
+        appendChatMessage("System", "Zero-cost compute execution framework fully operational. Matrix pipeline calculations are processing locally within device components.");
+    } catch (error) {
+        aiStatus.textContent = `Initialization Interrupted: ${error.message}`;
+        aiStatus.style.color = "#f38ba8";
+        initAiBtn.disabled = false;
+        modelSelect.disabled = false;
+        console.error("WebGPU Allocation System Error Trap:", error);
     }
 }
 
-// ── Repo input button / Enter key ────────────────────────────
-loadBtn.addEventListener("click", () => {
-    let input = repoInput.value.trim();
-    const m   = input.match(/github\.com\/([^\/\s]+\/[^\/\s#?]+)/i);
-    if (m) input = m[1];
-    if (!input) return;
-    window.location.hash = input;
-    loadRepository(input);
-});
+// --- Chat Interface Logic Engine ---
+async function handleSendMessage() {
+    const promptText = chatInput.value.trim();
+    if (!promptText || !aiEngine) return;
 
-repoInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") loadBtn.click();
-});
+    appendChatMessage("User", promptText);
+    chatInput.value = "";
+    chatInput.disabled = true;
+    sendChatBtn.disabled = true;
 
-// ── Auto-load from URL hash or ?repo= param ──────────────────
+    chatHistory.push({ role: "user", content: promptText });
+    const aiBubble = appendChatMessage("AI", "Processing computational arrays...");
+
+    try {
+        const completion = await aiEngine.chat.completions.create({
+            messages: chatHistory,
+            stream: true
+        });
+
+        let replyMessage = "";
+        for await (const chunk of completion) {
+            const curDelta = chunk.choices[0]?.delta?.content || "";
+            replyMessage += curDelta;
+            aiBubble.querySelector(".msg-body").textContent = replyMessage;
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+        chatHistory.push({ role: "assistant", content: replyMessage });
+
+    } catch (error) {
+        aiBubble.querySelector(".msg-body").textContent = `Generation System Trap Fault: ${error.message}`;
+        console.error(error);
+    } finally {
+        chatInput.disabled = false;
+        sendChatBtn.disabled = false;
+        chatInput.focus();
+    }
+}
+
+function appendChatMessage(sender, text) {
+    const msgDiv = document.createElement("div");
+    msgDiv.className = `chat-msg ${sender.toLowerCase()}-msg`;
+    
+    const senderHeader = document.createElement("div");
+    senderHeader.className = "msg-header";
+    senderHeader.textContent = sender;
+    
+    const msgBody = document.createElement("pre");
+    msgBody.className = "msg-body";
+    msgBody.textContent = text;
+    
+    msgDiv.appendChild(senderHeader);
+    msgDiv.appendChild(msgBody);
+    chatWindow.appendChild(msgDiv);
+    
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+    return msgDiv;
+}
+
+// --- Event Handlers and Listeners ---
+loadBtn.onclick = () => {
+    let repo = repoInput.value.trim();
+    const urlMatch = repo.match(/github\.com\/([^\/]+\/[^\/]+)(\/|$)/i);
+    if (urlMatch) repo = urlMatch[1];
+    if (repo) {
+        window.location.hash = repoInput.value.trim();
+        loadRepository(repo);
+    }
+};
+
+initAiBtn.onclick = initializeAiEngine;
+sendChatBtn.onclick = handleSendMessage;
+chatInput.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } };
+
+injectRepoBtn.onclick = () => {
+    if (!fullCodebaseContext) return;
+    chatInput.value = `Here is the comprehensive structural file context mapped from this workspace assembly:\n\n${fullCodebaseContext}\n\nPerform a comprehensive overview targeting architecture flaws, synchronization risks, or code quality anomalies.`;
+    chatInput.focus();
+};
+
+clearChatBtn.onclick = () => {
+    chatHistory = [];
+    chatWindow.innerHTML = '<div class="system-message">Chat memory storage clean. Context vectors tracking flushed.</div>';
+};
+
 function checkURL() {
     const params = new URLSearchParams(window.location.search);
-    let repo     = params.get("repo");
-    if (!repo && window.location.hash) {
-        repo = decodeURIComponent(window.location.hash.slice(1));
-    }
+    let repo = params.get("repo");
+    if (!repo && window.location.hash) repo = window.location.hash.slice(1);
     if (repo) {
-        const m = repo.match(/github\.com\/([^\/\s]+\/[^\/\s#?]+)/i);
-        if (m) repo = m[1];
+        const urlMatch = repo.match(/github\.com\/([^\/]+\/[^\/]+)/i);
+        if (urlMatch) repo = urlMatch[1];
         repoInput.value = repo;
         loadRepository(repo);
     }
 }
+
 checkURL();
-
-// ── Hide repo input when embedded in iframe ──────────────────
-if (window.top !== window.self) {
-    document.getElementById("explorer-ui")?.classList.add("hidden");
-}
-
-// ── Public API ────────────────────────────────────────────────
-window.GitHubExplorer = {
-    async loadRepo(owner, repo) {
-        const full = `${owner}/${repo}`;
-        repoInput.value = full;
-        await loadRepository(full);
-        return window.__github_explorer_files;
-    },
-    getFiles()     { return window.__github_explorer_files || {}; },
-    getFileCache() { return { ...fileCache }; },
-    async ask(prompt) {
-        if (!generator) throw new Error("AI not initialized");
-        chatInput.value = prompt;
-        await sendMessage(prompt);
-    },
-};
