@@ -1,8 +1,8 @@
 import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0";
 
-// System Configuration: Force WebAssembly to bypass strict 16KB WebGPU hardware limits
+// System Configuration: Extreme memory conservation for constrained mobile architectures
 env.allowLocalModels = false;
-env.backends.onnx.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 4, 4);
+env.backends.onnx.wasm.numThreads = 1; // FORCED SINGLE THREAD: Prevents Android from killing the tab due to multi-allocation RAM spikes
 
 // DOM Binding Registry
 const repoInput = document.getElementById("repoInput");
@@ -21,7 +21,6 @@ const sendChatBtn = document.getElementById("sendChatBtn");
 const injectRepoBtn = document.getElementById("injectRepoBtn");
 const clearChatBtn = document.getElementById("clearChatBtn");
 
-// State Work-Matrix Properties
 const loadAllFiles = true; 
 let aiEngine = null;
 let chatHistory = [];
@@ -153,21 +152,21 @@ async function initializeAiEngine() {
     const selectedModel = modelSelect.value;
     initAiBtn.disabled = true;
     modelSelect.disabled = true;
-    aiStatus.textContent = "Booting ONNX WASM Engine (bypassing WebGPU limitations)...";
+    aiStatus.textContent = "Booting ONNX Engine in low-memory mode...";
     aiStatus.style.color = "#cdd6f4";
     progressContainer.classList.remove("hidden");
 
     try {
         aiEngine = await pipeline('text-generation', selectedModel, {
-            device: 'wasm', // Absolutely enforces CPU/WASM matrix routing
+            device: 'wasm',
             dtype: 'q4f16', // Quantized 4-bit memory safety
             progress_callback: (x) => {
                 if (x.status === 'progress') {
                     progressBar.style.width = `${(x.loaded / x.total) * 100}%`;
                 } else if (x.status === 'init') {
-                    aiStatus.textContent = `Loading matrix tensors: ${x.file}`;
+                    aiStatus.textContent = `Allocating secure memory bounds: ${x.file}`;
                 } else if (x.status === 'ready') {
-                    aiStatus.textContent = `Success: CPU/WASM Engine Active.`;
+                    aiStatus.textContent = `Success: Single-Thread WASM Engine Active.`;
                     aiStatus.style.color = "#a6e3a1";
                     progressBar.style.width = "100%";
                     chatInput.disabled = false;
@@ -176,7 +175,7 @@ async function initializeAiEngine() {
             }
         });
         
-        appendChatMessage("System", "Zero-cost compute engine successfully mounted via WebAssembly. Inference will process directly on the CPU, safely bypassing restricted mobile graphics drivers.");
+        appendChatMessage("System", "Compute engine successfully mapped to available RAM. Inference will process directly on a single CPU thread to prevent memory overflow.");
     } catch (error) {
         aiStatus.textContent = `Initialization Terminated: ${error.message}`;
         aiStatus.style.color = "#f38ba8";
@@ -197,7 +196,7 @@ async function handleSendMessage() {
     sendChatBtn.disabled = true;
 
     chatHistory.push({ role: "user", content: promptText });
-    const aiBubble = appendChatMessage("AI", "Processing computational inference (Processing via CPU)...");
+    const aiBubble = appendChatMessage("AI", "Processing via single-thread CPU...");
 
     try {
         const output = await aiEngine(chatHistory, {
@@ -206,7 +205,6 @@ async function handleSendMessage() {
             do_sample: true
         });
 
-        // Transformers.js text-generation returns the entire conversation array
         const replyMessage = output[0].generated_text.at(-1).content;
         
         aiBubble.querySelector(".msg-body").textContent = replyMessage;
