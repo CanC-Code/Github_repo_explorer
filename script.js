@@ -1,4 +1,8 @@
-import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0";
+
+// System Configuration: Force WebAssembly to bypass strict 16KB WebGPU hardware limits
+env.allowLocalModels = false;
+env.backends.onnx.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 4, 4);
 
 // DOM Binding Registry
 const repoInput = document.getElementById("repoInput");
@@ -23,14 +27,9 @@ let aiEngine = null;
 let chatHistory = [];
 let fullCodebaseContext = "";
 
-// Immediate Environment Capabilities Pipeline
 window.addEventListener("DOMContentLoaded", () => {
     if (window.location.protocol === 'file:') {
         aiStatus.textContent = "CRITICAL: Script running over file:// protocol. Local web server instance required to process cross-origin requests safely.";
-        aiStatus.style.color = "#f38ba8";
-        initAiBtn.disabled = true;
-    } else if (!navigator.gpu) {
-        aiStatus.textContent = "CRITICAL: WebGPU subsystem missing or blocked. Verify browser configurations inside chrome://flags.";
         aiStatus.style.color = "#f38ba8";
         initAiBtn.disabled = true;
     }
@@ -140,7 +139,7 @@ function appendAiUtilityLink(listItem, filePath, fileContent) {
     aiBtn.onclick = (e) => {
         e.stopPropagation();
         if (!aiEngine) {
-            alert("Local AI Engine not running. Complete environmental setup stages via the right configuration workspace panel first.");
+            alert("Local AI Engine not running. Initialize the WASM engine first.");
             return;
         }
         chatInput.value = `Analyze the structural properties of this source code file for performance blockages or optimization bugs:\n\nPath Identifier: ${filePath}\n\`\`\`\n${fileContent}\n\`\`\``;
@@ -149,44 +148,41 @@ function appendAiUtilityLink(listItem, filePath, fileContent) {
     listItem.insertBefore(aiBtn, listItem.firstChild);
 }
 
-// --- High-Compatibility WebGPU Execution Engine Initialization ---
+// --- Transformers.js ONNX WASM Engine Initialization ---
 async function initializeAiEngine() {
     const selectedModel = modelSelect.value;
     initAiBtn.disabled = true;
     modelSelect.disabled = true;
-    aiStatus.textContent = "Setting up compilation parameters and downloading execution weights...";
+    aiStatus.textContent = "Booting ONNX WASM Engine (bypassing WebGPU limitations)...";
     aiStatus.style.color = "#cdd6f4";
     progressContainer.classList.remove("hidden");
 
-    const initProgressCallback = (report) => {
-        aiStatus.textContent = report.text;
-        if (report.progress !== undefined) {
-            progressBar.style.width = `${report.progress * 100}%`;
-        }
-    };
-
     try {
-        // Enforce strict context boundaries to bypass mobile driver 16KB workgroup limitations
-        const mobileHardwareOverrides = {
-            initProgressCallback: initProgressCallback,
-            contextWindowSize: 1024, // Keeps allocation matrices small inside mobile memory pools
-        };
-
-        aiEngine = await webllm.CreateMLCEngine(selectedModel, mobileHardwareOverrides);
+        aiEngine = await pipeline('text-generation', selectedModel, {
+            device: 'wasm', // Absolutely enforces CPU/WASM matrix routing
+            dtype: 'q4f16', // Quantized 4-bit memory safety
+            progress_callback: (x) => {
+                if (x.status === 'progress') {
+                    progressBar.style.width = `${(x.loaded / x.total) * 100}%`;
+                } else if (x.status === 'init') {
+                    aiStatus.textContent = `Loading matrix tensors: ${x.file}`;
+                } else if (x.status === 'ready') {
+                    aiStatus.textContent = `Success: CPU/WASM Engine Active.`;
+                    aiStatus.style.color = "#a6e3a1";
+                    progressBar.style.width = "100%";
+                    chatInput.disabled = false;
+                    sendChatBtn.disabled = false;
+                }
+            }
+        });
         
-        aiStatus.textContent = `Success: Mobile-optimized compute pipeline live. Model: ${selectedModel}`;
-        aiStatus.style.color = "#a6e3a1";
-        progressBar.style.width = "100%";
-        
-        chatInput.disabled = false;
-        sendChatBtn.disabled = false;
-        appendChatMessage("System", "Zero-cost compute interface engine successfully mounted. Matrix arithmetic loops are rendering strictly inside your local device hardware components.");
+        appendChatMessage("System", "Zero-cost compute engine successfully mounted via WebAssembly. Inference will process directly on the CPU, safely bypassing restricted mobile graphics drivers.");
     } catch (error) {
         aiStatus.textContent = `Initialization Terminated: ${error.message}`;
         aiStatus.style.color = "#f38ba8";
         initAiBtn.disabled = false;
         modelSelect.disabled = false;
-        console.error("WebGPU Kernel Assembly Exception:", error);
+        console.error("ONNX Assembly Exception:", error);
     }
 }
 
@@ -201,30 +197,29 @@ async function handleSendMessage() {
     sendChatBtn.disabled = true;
 
     chatHistory.push({ role: "user", content: promptText });
-    const aiBubble = appendChatMessage("AI", "Processing computational inference...");
+    const aiBubble = appendChatMessage("AI", "Processing computational inference (Processing via CPU)...");
 
     try {
-        const completion = await aiEngine.chat.completions.create({
-            messages: chatHistory,
-            stream: true
+        const output = await aiEngine(chatHistory, {
+            max_new_tokens: 300,
+            temperature: 0.6,
+            do_sample: true
         });
 
-        let replyMessage = "";
-        for await (const chunk of completion) {
-            const curDelta = chunk.choices[0]?.delta?.content || "";
-            replyMessage += curDelta;
-            aiBubble.querySelector(".msg-body").textContent = replyMessage;
-            chatWindow.scrollTop = chatWindow.scrollHeight;
-        }
+        // Transformers.js text-generation returns the entire conversation array
+        const replyMessage = output[0].generated_text.at(-1).content;
+        
+        aiBubble.querySelector(".msg-body").textContent = replyMessage;
         chatHistory.push({ role: "assistant", content: replyMessage });
 
     } catch (error) {
         aiBubble.querySelector(".msg-body").textContent = `Inference Failure: ${error.message}`;
-        console.error(error);
+        console.error("Pipeline failure:", error);
     } finally {
         chatInput.disabled = false;
         sendChatBtn.disabled = false;
         chatInput.focus();
+        chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 }
 
