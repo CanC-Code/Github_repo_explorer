@@ -1,9 +1,3 @@
-import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0";
-
-// System Configuration: Extreme memory conservation for constrained mobile architectures
-env.allowLocalModels = false;
-env.backends.onnx.wasm.numThreads = 1; // FORCED SINGLE THREAD: Prevents out-of-memory RAM spikes
-
 // DOM Binding Registry
 const repoInput = document.getElementById("repoInput");
 const loadBtn = document.getElementById("loadBtn");
@@ -22,17 +16,64 @@ const injectRepoBtn = document.getElementById("injectRepoBtn");
 const clearChatBtn = document.getElementById("clearChatBtn");
 
 const loadAllFiles = true; 
-let aiEngine = null;
 let chatHistory = [];
 let fullCodebaseContext = "";
 
+// Initialize the isolated background worker
+let aiWorker = null;
+
 window.addEventListener("DOMContentLoaded", () => {
     if (window.location.protocol === 'file:') {
-        aiStatus.textContent = "CRITICAL: Script running over file:// protocol. Local web server instance required to process cross-origin requests safely.";
+        aiStatus.textContent = "CRITICAL: Script running over file:// protocol. Local web server instance required.";
         aiStatus.style.color = "#f38ba8";
         initAiBtn.disabled = true;
+    } else {
+        // Spin up the worker instance using module architecture
+        aiWorker = new Worker("worker.js", { type: "module" });
+        setupWorkerListeners();
     }
 });
+
+function setupWorkerListeners() {
+    aiWorker.onmessage = (event) => {
+        const { type, data } = event.data;
+
+        if (type === 'progress') {
+            if (data.status === 'progress') {
+                progressBar.style.width = `${(data.loaded / data.total) * 100}%`;
+            } else if (data.status === 'init') {
+                aiStatus.textContent = `Mapping background tensors: ${data.file}`;
+            }
+        } 
+        else if (type === 'ready') {
+            aiStatus.textContent = `Success: Background AI Worker Active.`;
+            aiStatus.style.color = "#a6e3a1";
+            progressBar.style.width = "100%";
+            chatInput.disabled = false;
+            sendChatBtn.disabled = false;
+            appendChatMessage("System", "Worker thread initialized. Main UI is shielded from memory spikes. Ready for inference.");
+        } 
+        else if (type === 'result') {
+            // Locate the "Thinking..." bubble and replace it with the actual result
+            const aiBubbles = chatWindow.querySelectorAll('.ai-msg .msg-body');
+            const lastAiBubble = aiBubbles[aiBubbles.length - 1];
+            if (lastAiBubble) lastAiBubble.textContent = data;
+            
+            chatHistory.push({ role: "assistant", content: data });
+            chatInput.disabled = false;
+            sendChatBtn.disabled = false;
+            chatInput.focus();
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        } 
+        else if (type === 'error') {
+            aiStatus.textContent = `Worker Fault: ${data}`;
+            aiStatus.style.color = "#f38ba8";
+            initAiBtn.disabled = false;
+            chatInput.disabled = false;
+            sendChatBtn.disabled = false;
+        }
+    };
+}
 
 // --- Repository API Aggregation Matrix ---
 async function loadRepository(ownerRepo) {
@@ -43,7 +84,7 @@ async function loadRepository(ownerRepo) {
 
     try {
         const repoRes = await fetch(`https://api.github.com/repos/${ownerRepo}`);
-        if (!repoRes.ok) throw new Error("Target repository structural metadata unavailable or protected.");
+        if (!repoRes.ok) throw new Error("Target repository structural metadata unavailable.");
         const repoData = await repoRes.json();
         const branch = repoData.default_branch || "main";
         
@@ -101,7 +142,6 @@ function buildTreeList(tree, ownerRepo, branch) {
                     const res = await fetch(`https://raw.githubusercontent.com/${ownerRepo}/${branch}/${tree[key]._path}`);
                     if (res.ok) {
                         const fileContent = await res.text();
-                        
                         const ext = tree[key]._path.split('.').pop().toLowerCase();
                         let lang = 'javascript';
                         if (ext === 'html') lang = 'markup';
@@ -118,7 +158,7 @@ function buildTreeList(tree, ownerRepo, branch) {
                         
                         Prism.highlightElement(codeBlock);
                     } else {
-                        pre.textContent = `Streaming Fault: HTTP target asset returned status ${res.statusText}`;
+                        pre.textContent = `Streaming Fault: HTTP status ${res.statusText}`;
                     }
                 } catch (err) {
                     pre.textContent = `Network Exception: ${err.message}`;
@@ -137,8 +177,8 @@ function appendAiUtilityLink(listItem, filePath, fileContent) {
     aiBtn.className = "file-ai-btn";
     aiBtn.onclick = (e) => {
         e.stopPropagation();
-        if (!aiEngine) {
-            alert("Local AI Engine not running. Initialize the WASM engine first.");
+        if (!aiWorker || initAiBtn.disabled === false) {
+            alert("Background AI Worker not initialized yet.");
             return;
         }
         chatInput.value = `Analyze the structural properties of this source code file for performance blockages or optimization bugs:\n\nPath Identifier: ${filePath}\n\`\`\`\n${fileContent}\n\`\`\``;
@@ -147,48 +187,23 @@ function appendAiUtilityLink(listItem, filePath, fileContent) {
     listItem.insertBefore(aiBtn, listItem.firstChild);
 }
 
-// --- Transformers.js ONNX WASM Engine Initialization ---
-async function initializeAiEngine() {
+// --- Worker Activation ---
+function initializeAiEngine() {
     const selectedModel = modelSelect.value;
     initAiBtn.disabled = true;
     modelSelect.disabled = true;
-    aiStatus.textContent = "Booting ONNX Engine in strict q4-quantized memory mode...";
+    aiStatus.textContent = "Signaling background worker thread...";
     aiStatus.style.color = "#cdd6f4";
     progressContainer.classList.remove("hidden");
 
-    try {
-        aiEngine = await pipeline('text-generation', selectedModel, {
-            device: 'wasm',
-            dtype: 'q4', // FIXED: Native Transformers.js 4-bit compression target (forces tiny RAM footprint)
-            progress_callback: (x) => {
-                if (x.status === 'progress') {
-                    progressBar.style.width = `${(x.loaded / x.total) * 100}%`;
-                } else if (x.status === 'init') {
-                    aiStatus.textContent = `Mapping secure tensors: ${x.file}`;
-                } else if (x.status === 'ready') {
-                    aiStatus.textContent = `Success: Single-Thread WASM Engine Active.`;
-                    aiStatus.style.color = "#a6e3a1";
-                    progressBar.style.width = "100%";
-                    chatInput.disabled = false;
-                    sendChatBtn.disabled = false;
-                }
-            }
-        });
-        
-        appendChatMessage("System", "Compute engine successfully mapped to available RAM. Memory quantization set to q4. Inference will process directly on a single CPU thread to prevent memory overflow.");
-    } catch (error) {
-        aiStatus.textContent = `Initialization Terminated: ${error.message}`;
-        aiStatus.style.color = "#f38ba8";
-        initAiBtn.disabled = false;
-        modelSelect.disabled = false;
-        console.error("ONNX Assembly Exception:", error);
-    }
+    // Send the init command to the background file
+    aiWorker.postMessage({ type: 'init', data: { model: selectedModel } });
 }
 
 // --- Chat Communication Interface Pipeline ---
-async function handleSendMessage() {
+function handleSendMessage() {
     const promptText = chatInput.value.trim();
-    if (!promptText || !aiEngine) return;
+    if (!promptText || !aiWorker) return;
 
     appendChatMessage("User", promptText);
     chatInput.value = "";
@@ -196,29 +211,10 @@ async function handleSendMessage() {
     sendChatBtn.disabled = true;
 
     chatHistory.push({ role: "user", content: promptText });
-    const aiBubble = appendChatMessage("AI", "Processing via single-thread CPU...");
+    appendChatMessage("AI", "Thinking (processing in background thread)...");
 
-    try {
-        const output = await aiEngine(chatHistory, {
-            max_new_tokens: 300,
-            temperature: 0.6,
-            do_sample: true
-        });
-
-        const replyMessage = output[0].generated_text.at(-1).content;
-        
-        aiBubble.querySelector(".msg-body").textContent = replyMessage;
-        chatHistory.push({ role: "assistant", content: replyMessage });
-
-    } catch (error) {
-        aiBubble.querySelector(".msg-body").textContent = `Inference Failure: ${error.message}`;
-        console.error("Pipeline failure:", error);
-    } finally {
-        chatInput.disabled = false;
-        sendChatBtn.disabled = false;
-        chatInput.focus();
-        chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
+    // Send the generate command to the background file
+    aiWorker.postMessage({ type: 'generate', data: { chatHistory: chatHistory } });
 }
 
 function appendChatMessage(sender, text) {
@@ -241,7 +237,7 @@ function appendChatMessage(sender, text) {
     return msgDiv;
 }
 
-// --- Event Listeners and Hooking Matrices ---
+// --- Event Listeners ---
 loadBtn.onclick = () => {
     let repo = repoInput.value.trim();
     const urlMatch = repo.match(/github\.com\/([^\/]+\/[^\/]+)(\/|$)/i);
@@ -258,13 +254,13 @@ chatInput.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.prevent
 
 injectRepoBtn.onclick = () => {
     if (!fullCodebaseContext) return;
-    chatInput.value = `Review the compiled context file structure for code design flaws, interface errors, or architecture synchronization anomalies:\n\n${fullCodebaseContext}`;
+    chatInput.value = `Review the compiled context file structure for code design flaws:\n\n${fullCodebaseContext}`;
     chatInput.focus();
 };
 
 clearChatBtn.onclick = () => {
     chatHistory = [];
-    chatWindow.innerHTML = '<div class="system-message">Conversation records cleared. Content tracking maps refreshed.</div>';
+    chatWindow.innerHTML = '<div class="system-message">Conversation records cleared.</div>';
 };
 
 function checkURL() {
