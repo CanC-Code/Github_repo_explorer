@@ -33,8 +33,7 @@
             <div class="ai-controls">
                 <label for="modelSelect">Model:</label>
                 <select id="modelSelect">
-                    <option value="SmolLM-360M-Instruct-q4f16_1-MLC">SmolLM 360M (Highly Compatible / Low VRAM)</option>
-                    <option value="Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC">Qwen 2.5 Coder 1.5B (Code Focused)</option>
+                    <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">Qwen 2.5 0.5B (Ultra-Light / Android-Safe)</option>
                 </select>
                 <button id="initAiBtn">Initialize Model</button>
             </div>
@@ -45,7 +44,7 @@
             </div>
 
             <div id="chatWindow" class="chat-window">
-                <div class="system-message">System: Click "Initialize Model" to spin up the local LLM engine. Ensure "Unsafe WebGPU" is enabled in chrome://flags if running on mobile hardware.</div>
+                <div class="system-message">System: Click "Initialize Model" to spin up the local LLM engine. Ensure WebGPU is activated in chrome://flags if running on mobile hardware.</div>
             </div>
 
             <div class="context-actions">
