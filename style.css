@@ -71,7 +71,7 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* Master Grid Viewport Interface Split */
+/* Structural Split Dashboard Viewports */
 .workspace-container {
     display: flex;
     gap: 1.5rem;
@@ -121,7 +121,7 @@ li:hover {
     background: #313244;
 }
 
-/* Hardcoded Unicode representations bypass deployment translation degradation bugs */
+/* Escaped Unicode strings avoid text rendering conversion corruption */
 li.folder::before { 
     content: "\1F4C1 \0020"; 
 }
@@ -139,7 +139,7 @@ li.file::before {
     display: inline-block;
 }
 
-/* Local AI Interface Architecture Components */
+/* Local Engine Management Visual Components */
 .ai-controls {
     display: flex;
     align-items: center;
