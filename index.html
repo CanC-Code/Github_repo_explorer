@@ -2,62 +2,81 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GitHub Repo Explorer & AI Architect</title>
-<link rel="stylesheet" href="style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>GitHub Repo Explorer &amp; AI Architect</title>
+<link rel="stylesheet" href="style.css?v=6">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet"/>
 </head>
 <body>
+
 <header>
-    <h1>GitHub Repo Explorer & AI Architect</h1>
-    <p>Browse public GitHub repositories and review code locally using zero-cost CPU/WASM LLMs</p>
+    <h1>GitHub Repo Explorer &amp; AI Architect</h1>
+    <p>Browse public GitHub repositories &middot; Review code with a local on-device WASM LLM</p>
 </header>
 
 <main>
     <div id="explorer-ui" class="input-container">
-        <input type="text" id="repoInput" placeholder="Enter GitHub repo (owner/repo)">
-        <button id="loadBtn">Load Repository</button>
+        <input type="text" id="repoInput" placeholder="owner/repo or full GitHub URL" autocomplete="off" spellcheck="false">
+        <button id="loadBtn">Load Repo</button>
     </div>
-    
+
     <div id="repoInfo"></div>
 
     <div class="workspace-container">
+
+        <!-- FILE EXPLORER PANEL -->
         <div class="panel explorer-panel">
-            <h2>Codebase Structure</h2>
+            <h2>&#128193; Codebase</h2>
             <div id="fileTree"></div>
         </div>
 
+        <!-- AI ASSISTANT PANEL -->
         <div class="panel ai-panel">
-            <h2>Local AI Assistant (ONNX WASM Engine)</h2>
-            
+            <h2>&#129302; Local AI <span class="badge">WASM&nbsp;CPU</span></h2>
+
             <div class="ai-controls">
-                <label for="modelSelect">Model:</label>
                 <select id="modelSelect">
-                    <option value="Xenova/Qwen1.5-0.5B-Chat">Qwen 1.5 0.5B (ONNX / q4 Memory Compressed)</option>
-                    <option value="Xenova/TinyLlama-1.1B-Chat-v1.0">TinyLlama 1.1B (ONNX / q4 Memory Compressed)</option>
+                    <!--
+                      SmolLM2 135M  — ~50 MB download, lowest RAM, fastest init.
+                                      Best choice for Motorola / low-RAM devices.
+                      SmolLM2 360M  — ~130 MB download, smarter replies.
+                                      Use only if 135M works without crashes first.
+                    -->
+                    <option value="HuggingFaceTB/SmolLM2-135M-Instruct">SmolLM2 135M &mdash; Lowest RAM (~50 MB) &#10003; Start here</option>
+                    <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2 360M &mdash; Smarter (~130 MB)</option>
                 </select>
-                <button id="initAiBtn">Initialize Model</button>
+                <button id="initAiBtn">Initialize</button>
             </div>
 
-            <div id="aiStatus" class="status-box">Status: Waiting for initialization...</div>
+            <div id="aiStatus" class="status-box">
+                Status: Ready. Select a model and tap Initialize.<br>
+                <small>First load downloads the model (~50&ndash;130 MB). Cached on repeat visits.</small>
+            </div>
+
+            <!-- Progress bar hidden until init starts; shows indeterminate spinner -->
             <div id="progressContainer" class="progress-container hidden">
-                <div id="progressBar" class="progress-bar"></div>
+                <div id="progressBar" class="progress-bar indeterminate"></div>
             </div>
 
             <div id="chatWindow" class="chat-window">
-                <div class="system-message">System: Click "Initialize Model" to spin up the local LLM. Running in strictly quantized WASM mode to bypass aggressive mobile memory kills.</div>
+                <div class="system-message">Initialize a model above to begin. Send one file at a time for best results on mobile.</div>
             </div>
 
             <div class="context-actions">
-                <button id="injectRepoBtn" disabled>Inject Full Repo Context</button>
+                <!-- Inject Full Repo Context removed: injecting the full codebase
+                     creates a token buffer too large for low-RAM devices and causes
+                     the OS to kill the page. Send one file at a time via "Ask AI". -->
                 <button id="clearChatBtn">Clear Chat</button>
             </div>
 
             <div class="chat-input-container">
-                <textarea id="chatInput" placeholder="Ask a question about the code or prompt an update..." disabled></textarea>
-                <button id="sendChatBtn" disabled>Send</button>
+                <textarea id="chatInput" placeholder="Ask about the code… (Enter to send, Shift+Enter for newline)" disabled></textarea>
+                <button id="sendChatBtn" disabled>&#9650;</button>
             </div>
         </div>
+
     </div>
 </main>
 
@@ -69,7 +88,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
 
-<script type="module" src="script.js?version=wasm_q4_fixed"></script>
+<!-- v=6 — bump after every deploy to force cache invalidation -->
+<script src="script.js?v=6"></script>
 </body>
 </html>
